@@ -1,153 +1,157 @@
-# CLAUDE.md — AI Assistant Guide for deal_foward
+# CLAUDE.md — deal_foward AIアシスタントガイド
 
-> This file provides context for AI assistants (Claude, Copilot, etc.) working on
-> this repository. It describes the project, codebase structure, development
-> workflows, and conventions to follow.
+> このファイルは、本リポジトリで作業するAIアシスタント（Claude、Copilot等）向けの
+> コンテキスト情報を提供します。プロジェクトの概要、コードベースの構造、開発ワークフロー、
+> 従うべき規約について説明しています。
 
-## Project Overview
+## プロジェクト概要
 
-**deal_foward** is a new repository currently in its initial setup phase. No
-application code, configuration files, or CI/CD pipelines have been added yet.
-This document should be updated as the project evolves.
+**deal_foward** は、現在初期セットアップ段階にある新しいリポジトリです。アプリケーション
+コード、設定ファイル、CI/CDパイプラインはまだ追加されていません。プロジェクトの進化に
+合わせてこのドキュメントを更新してください。
 
-**Repository:** `sinoue-1003/deal_foward`
+**リポジトリ:** `sinoue-1003/deal_foward`
 
-## Repository Status
+## リポジトリの状態
 
-- **Current state:** Empty — no source code, dependencies, or build tooling
-  configured yet.
-- **Primary branch:** To be established (main or master) once initial code is
-  committed.
-- **Development branches:** Follow the pattern `claude/<description>-<session-id>`
-  for AI-assisted work.
+- **現在の状態:** 空 — ソースコード、依存関係、ビルドツールはまだ設定されていません。
+- **メインブランチ:** 初回コードがコミットされた時点で確立予定（main または master）。
+- **開発ブランチ:** AI支援作業では `claude/<説明>-<セッションID>` のパターンに
+  従ってください。
 
-## Directory Structure
+## ディレクトリ構成
 
 ```
 deal_foward/
-├── CLAUDE.md          # This file — AI assistant context and conventions
-└── (empty)            # Awaiting initial project scaffolding
+├── CLAUDE.md          # このファイル — AIアシスタント向けのコンテキストと規約
+└── (空)               # プロジェクトの初期構築待ち
 ```
 
-As the project grows, update this section to reflect the actual structure
-(e.g., `src/`, `tests/`, `docs/`, config files, etc.).
+プロジェクトの成長に合わせて、実際の構造を反映するようにこのセクションを更新してください
+（例: `src/`、`tests/`、`docs/`、設定ファイル等）。
 
-## Development Workflow
+## 開発ワークフロー
 
-### Getting Started
+### はじめに
 
-_No setup steps defined yet._ Once the project is scaffolded, document:
+_セットアップ手順はまだ定義されていません。_ プロジェクトが構築されたら、以下を
+ドキュメント化してください:
 
-1. Prerequisites (runtime versions, system dependencies)
-2. Installation steps (e.g., `npm install`, `pip install -r requirements.txt`)
-3. Environment configuration (`.env` files, secrets)
-4. How to run the project locally
+1. 前提条件（ランタイムバージョン、システム依存関係）
+2. インストール手順（例: `npm install`、`pip install -r requirements.txt`）
+3. 環境設定（`.env` ファイル、シークレット）
+4. ローカルでの実行方法
 
-### Common Commands
+### よく使うコマンド
 
-_No commands defined yet._ Once tooling is in place, list commands such as:
+_コマンドはまだ定義されていません。_ ツールが導入されたら、以下のようなコマンドを
+記載してください:
 
-| Command | Description |
-|---------|-------------|
-| `<build>` | Build the project |
-| `<dev>` | Start development server |
-| `<test>` | Run the test suite |
-| `<lint>` | Run linting checks |
-| `<format>` | Auto-format code |
+| コマンド | 説明 |
+|---------|------|
+| `<build>` | プロジェクトのビルド |
+| `<dev>` | 開発サーバーの起動 |
+| `<test>` | テストスイートの実行 |
+| `<lint>` | リンティングチェックの実行 |
+| `<format>` | コードの自動フォーマット |
 
-### Testing
+### テスト
 
-_No test framework configured yet._ Document the following when tests are added:
+_テストフレームワークはまだ設定されていません。_ テストが追加されたら、以下を
+ドキュメント化してください:
 
-- Test framework and runner
-- How to run all tests vs. a single test
-- Where test files live and naming conventions
-- Minimum coverage requirements (if any)
+- テストフレームワークとランナー
+- 全テスト実行と単一テスト実行の方法
+- テストファイルの配置場所と命名規則
+- 最低カバレッジ要件（ある場合）
 
-### Linting & Formatting
+### リンティングとフォーマット
 
-_No linting or formatting tools configured yet._ When added, document:
+_リンティング・フォーマットツールはまだ設定されていません。_ 追加されたら、以下を
+ドキュメント化してください:
 
-- Tools used (ESLint, Prettier, Ruff, Black, etc.)
-- How to run lint checks and auto-fix
-- Editor integration notes
+- 使用ツール（ESLint、Prettier、Ruff、Black等）
+- リンティングチェックと自動修正の実行方法
+- エディタ連携に関する注意事項
 
-## Git Conventions
+## Git 規約
 
-### Branch Naming
+### ブランチ命名
 
-- Feature branches: `feature/<short-description>`
-- Bug fixes: `fix/<short-description>`
-- AI-assisted branches: `claude/<description>-<session-id>`
+- 機能ブランチ: `feature/<簡潔な説明>`
+- バグ修正: `fix/<簡潔な説明>`
+- AI支援ブランチ: `claude/<説明>-<セッションID>`
 
-### Commit Messages
+### コミットメッセージ
 
-Follow clear, descriptive commit messages:
+明確で説明的なコミットメッセージを心がけてください:
 
-- Use the imperative mood ("Add feature" not "Added feature")
-- Keep the subject line under 72 characters
-- Include a body for non-trivial changes explaining the "why"
+- 命令形を使用する（「Add feature」であり「Added feature」ではない）
+- 件名行は72文字以内に収める
+- 重要な変更には「なぜ」を説明する本文を含める
 
-### Pull Requests
+### プルリクエスト
 
-- Keep PRs focused on a single concern
-- Include a summary and test plan in the PR description
-- Ensure all checks pass before requesting review
+- PRは単一の関心事に集中させる
+- PR説明に概要とテスト計画を含める
+- レビュー依頼前にすべてのチェックが通過していることを確認する
 
-## Code Conventions
+## コード規約
 
-_To be defined once the tech stack is chosen._ When established, document:
+_技術スタックが決定されたら定義予定。_ 確立されたら、以下をドキュメント化してください:
 
-- Programming language(s) and version(s)
-- Frameworks and key libraries
-- Code style guide or standard being followed
-- Naming conventions (files, variables, functions, classes)
-- Import ordering rules
-- Error handling patterns
-- Logging conventions
+- プログラミング言語とバージョン
+- フレームワークと主要ライブラリ
+- 準拠するコードスタイルガイドまたは標準
+- 命名規則（ファイル、変数、関数、クラス）
+- インポート順序のルール
+- エラーハンドリングパターン
+- ログ記録の規約
 
-## Architecture
+## アーキテクチャ
 
-_No architecture defined yet._ When the project takes shape, document:
+_アーキテクチャはまだ定義されていません。_ プロジェクトが形になったら、以下を
+ドキュメント化してください:
 
-- High-level architecture diagram or description
-- Key components and their responsibilities
-- Data flow between components
-- External services and integrations
-- Database schema or data model overview
+- 高レベルのアーキテクチャ図または説明
+- 主要コンポーネントとその責務
+- コンポーネント間のデータフロー
+- 外部サービスとの連携
+- データベーススキーマまたはデータモデルの概要
 
-## Environment & Configuration
+## 環境と設定
 
-_No environment configuration yet._ When added, document:
+_環境設定はまだありません。_ 追加されたら、以下をドキュメント化してください:
 
-- Required environment variables
-- Configuration file locations and formats
-- Secrets management approach
-- Differences between dev, staging, and production environments
+- 必要な環境変数
+- 設定ファイルの場所とフォーマット
+- シークレット管理の方針
+- 開発・ステージング・本番環境の違い
 
-## AI Assistant Guidelines
+## AIアシスタント向けガイドライン
 
-When working on this repository, AI assistants should:
+本リポジトリで作業する際、AIアシスタントは以下を守ってください:
 
-1. **Read this file first** for project context before making changes.
-2. **Check for updates** — this file should be the source of truth for project
-   conventions and may change as the project evolves.
-3. **Follow existing patterns** — match the style of surrounding code rather than
-   introducing new conventions.
-4. **Run tests and linting** before committing, once those tools are configured.
-5. **Keep changes focused** — avoid unrelated refactors or scope creep.
-6. **Update this file** when adding new tooling, changing conventions, or
-   modifying project structure.
-7. **Never commit secrets** — no API keys, passwords, or tokens in code.
-8. **Prefer editing over creating** — modify existing files rather than creating
-   new ones when possible.
+1. **まずこのファイルを読む** — 変更を加える前にプロジェクトのコンテキストを把握する。
+2. **更新を確認する** — このファイルはプロジェクト規約の信頼できる情報源であり、
+   プロジェクトの進化に伴い変更される可能性がある。
+3. **既存パターンに従う** — 新しい規約を導入するのではなく、周囲のコードのスタイルに
+   合わせる。
+4. **テストとリンティングを実行する** — ツールが設定されたら、コミット前に必ず実行する。
+5. **変更を集中させる** — 無関係なリファクタリングやスコープの拡大を避ける。
+6. **このファイルを更新する** — 新しいツールの追加、規約の変更、プロジェクト構造の
+   修正時に更新する。
+7. **シークレットをコミットしない** — APIキー、パスワード、トークンをコードに含めない。
+8. **作成より編集を優先する** — 可能な限り、新しいファイルを作成するのではなく、
+   既存のファイルを修正する。
 
-## Updating This File
+## このファイルの更新について
 
-This CLAUDE.md should be treated as a living document. Update it when:
+この CLAUDE.md はリビングドキュメント（生きた文書）として扱ってください。
+以下のタイミングで更新してください:
 
-- The tech stack is chosen and scaffolded
-- Build/test/lint commands are established
-- Architectural decisions are made
-- New conventions or patterns are adopted
-- Directory structure changes significantly
+- 技術スタックが選定・構築されたとき
+- ビルド/テスト/リンティングのコマンドが確立されたとき
+- アーキテクチャに関する決定が行われたとき
+- 新しい規約やパターンが採用されたとき
+- ディレクトリ構成が大きく変更されたとき
