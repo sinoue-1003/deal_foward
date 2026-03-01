@@ -1,0 +1,95 @@
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+# ─────────────────────────────────────────────
+# Required GitHub Secrets:
+#   CLOUDFLARE_API_TOKEN   — Cloudflare API token (Workers + Pages deploy permission)
+#   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
+#   SUPABASE_URL           — https://xxxx.supabase.co
+#   SUPABASE_SERVICE_KEY   — Supabase service role key
+#   ANTHROPIC_API_KEY      — (optional) Claude API key
+#   OPENAI_API_KEY         — (optional) OpenAI Whisper key
+#   VITE_API_BASE_URL      — https://dealforward-api.<account>.workers.dev
+#   ALLOWED_ORIGIN         — https://dealforward.pages.dev  (your Pages URL)
+# ─────────────────────────────────────────────
+
+jobs:
+  # ── 1. Deploy backend to Cloudflare Workers ──────────────────────────────
+  deploy-backend:
+    name: Backend → Cloudflare Workers
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Install Wrangler CLI
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      # Upload secrets to the Worker (idempotent)
+      - name: Push Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "${{ secrets.SUPABASE_URL }}"          | wrangler secret put SUPABASE_URL
+          echo "${{ secrets.SUPABASE_SERVICE_KEY }}"  | wrangler secret put SUPABASE_SERVICE_KEY
+          echo "${{ secrets.ANTHROPIC_API_KEY }}"     | wrangler secret put ANTHROPIC_API_KEY
+          echo "${{ secrets.OPENAI_API_KEY }}"        | wrangler secret put OPENAI_API_KEY
+          echo "${{ secrets.ALLOWED_ORIGIN }}"        | wrangler secret put ALLOWED_ORIGIN
+
+      # Deploy the Python Worker
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend
+
+  # ── 2. Deploy frontend to Cloudflare Pages ───────────────────────────────
+  deploy-frontend:
+    name: Frontend → Cloudflare Pages
+    runs-on: ubuntu-latest
+    needs: deploy-backend   # ensure Worker URL is live before building
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          # Replace with your actual Worker URL after first deploy
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy frontend/dist --project-name=dealforward --commit-dirty=true

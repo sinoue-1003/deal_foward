@@ -6,54 +6,85 @@
 
 ## プロジェクト概要
 
-**deal_foward** は、現在初期セットアップ段階にある新しいリポジトリです。アプリケーション
-コード、設定ファイル、CI/CDパイプラインはまだ追加されていません。プロジェクトの進化に
-合わせてこのドキュメントを更新してください。
+**deal_foward** は Gong.io に着想を得たレベニューインテリジェンスプラットフォームです。
+営業通話の録音・文字起こし・AI分析、ディール追跡、営業パフォーマンス分析を提供します。
 
 **リポジトリ:** `sinoue-1003/deal_foward`
 
+## 技術スタック
+
+- **バックエンド:** Python 3.11+ / FastAPI / SQLAlchemy / SQLite
+- **フロントエンド:** React 18 / Vite / Tailwind CSS / Recharts
+- **AI連携:** Claude API (会話分析) / OpenAI Whisper API (文字起こし)
+
 ## リポジトリの状態
 
-- **現在の状態:** 空 — ソースコード、依存関係、ビルドツールはまだ設定されていません。
-- **メインブランチ:** 初回コードがコミットされた時点で確立予定（main または master）。
-- **開発ブランチ:** AI支援作業では `claude/<説明>-<セッションID>` のパターンに
-  従ってください。
+- **現在の状態:** 実装済み — バックエンドAPI・フロントエンドUI・デモデータ完備。
+- **メインブランチ:** master
+- **開発ブランチ:** AI支援作業では `claude/<説明>-<セッションID>` のパターンに従ってください。
 
 ## ディレクトリ構成
 
 ```
 deal_foward/
-├── CLAUDE.md          # このファイル — AIアシスタント向けのコンテキストと規約
-└── (空)               # プロジェクトの初期構築待ち
+├── CLAUDE.md                   # このファイル — AIアシスタント向けのコンテキストと規約
+├── start.sh                    # 一発起動スクリプト
+├── backend/                    # FastAPI バックエンド
+│   ├── main.py                 # エントリーポイント
+│   ├── database.py             # DB接続・初期化
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── models/                 # SQLAlchemy モデル
+│   │   ├── call.py             # 通話モデル
+│   │   └── deal.py             # ディールモデル
+│   ├── routers/                # APIルーター
+│   │   ├── calls.py            # /api/calls
+│   │   ├── deals.py            # /api/deals
+│   │   └── analytics.py        # /api/analytics
+│   └── services/
+│       ├── ai_analysis.py      # Claude APIによる会話分析
+│       ├── transcription.py    # Whisper APIによる文字起こし
+│       └── seed.py             # デモデータ投入
+└── frontend/                   # React + Vite フロントエンド
+    ├── index.html
+    ├── package.json
+    ├── vite.config.js
+    ├── tailwind.config.js
+    └── src/
+        ├── App.jsx             # ルーティング・レイアウト
+        ├── index.css
+        ├── hooks/
+        │   └── useApi.js       # API呼び出しフック
+        ├── components/         # 共通UIコンポーネント
+        │   ├── StatCard.jsx
+        │   ├── SentimentBadge.jsx
+        │   ├── StageBadge.jsx
+        │   └── LoadingSpinner.jsx
+        └── pages/
+            ├── Dashboard.jsx   # ダッシュボード
+            ├── Calls.jsx       # 通話一覧
+            ├── CallDetail.jsx  # 通話詳細・AI分析
+            ├── Deals.jsx       # ディール一覧
+            ├── DealDetail.jsx  # ディール詳細
+            └── Analytics.jsx   # 分析・グラフ
 ```
-
-プロジェクトの成長に合わせて、実際の構造を反映するようにこのセクションを更新してください
-（例: `src/`、`tests/`、`docs/`、設定ファイル等）。
 
 ## 開発ワークフロー
 
 ### はじめに
 
-_セットアップ手順はまだ定義されていません。_ プロジェクトが構築されたら、以下を
-ドキュメント化してください:
-
-1. 前提条件（ランタイムバージョン、システム依存関係）
-2. インストール手順（例: `npm install`、`pip install -r requirements.txt`）
-3. 環境設定（`.env` ファイル、シークレット）
-4. ローカルでの実行方法
+1. **前提条件:** Python 3.11+、Node.js 20+
+2. **環境設定:** `backend/.env.example` をコピーして `backend/.env` を作成し、APIキーを設定
+3. **一発起動:** `./start.sh`
 
 ### よく使うコマンド
 
-_コマンドはまだ定義されていません。_ ツールが導入されたら、以下のようなコマンドを
-記載してください:
-
 | コマンド | 説明 |
 |---------|------|
-| `<build>` | プロジェクトのビルド |
-| `<dev>` | 開発サーバーの起動 |
-| `<test>` | テストスイートの実行 |
-| `<lint>` | リンティングチェックの実行 |
-| `<format>` | コードの自動フォーマット |
+| `./start.sh` | バックエンドとフロントエンドを同時起動 |
+| `cd backend && uvicorn main:app --reload` | バックエンドのみ起動 (port 8000) |
+| `cd frontend && npm run dev` | フロントエンドのみ起動 (port 5173) |
+| `cd frontend && npm run build` | プロダクションビルド |
 
 ### テスト
 
