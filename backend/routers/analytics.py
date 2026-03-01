@@ -1,112 +1,110 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from fastapi import APIRouter
 
-from database import get_db
-from models.call import Call
-from models.deal import Deal
+from db import get_db
 
 router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
+OPEN_STAGES = {"prospect", "qualify", "demo", "proposal", "negotiation"}
+STAGE_LABELS = {
+    "prospect": "見込み客", "qualify": "資格確認", "demo": "デモ",
+    "proposal": "提案", "negotiation": "交渉",
+    "closed_won": "成約", "closed_lost": "失注",
+}
+ALL_STAGES = list(STAGE_LABELS.keys())
+
 
 @router.get("/overview")
-def get_overview(db: Session = Depends(get_db)):
-    now = datetime.utcnow()
-    thirty_days_ago = now - timedelta(days=30)
+async def get_overview():
+    db = get_db()
+    deals, calls = await _fetch_all(db)
 
-    total_deals = db.query(Deal).count()
-    open_deals = db.query(Deal).filter(Deal.stage.notin_(["closed_won", "closed_lost"])).count()
-    won_deals = db.query(Deal).filter(Deal.stage == "closed_won").count()
-    lost_deals = db.query(Deal).filter(Deal.stage == "closed_lost").count()
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=30)).isoformat()
 
-    pipeline_value = db.query(func.sum(Deal.amount)).filter(
-        Deal.stage.notin_(["closed_won", "closed_lost"])
-    ).scalar() or 0
+    open_d = [d for d in deals if d["stage"] in OPEN_STAGES]
+    won    = [d for d in deals if d["stage"] == "closed_won"]
+    lost   = [d for d in deals if d["stage"] == "closed_lost"]
 
-    won_value = db.query(func.sum(Deal.amount)).filter(Deal.stage == "closed_won").scalar() or 0
+    pipeline_value = sum(d["amount"] for d in open_d)
+    won_value      = sum(d["amount"] for d in won)
+    win_rate = round(len(won) / (len(won) + len(lost)) * 100) if (won or lost) else 0
 
-    total_calls = db.query(Call).count()
-    recent_calls = db.query(Call).filter(Call.date >= thirty_days_ago).count()
+    recent = [c for c in calls if (c.get("date") or "") >= cutoff]
+    avg_dur = (sum(c["duration_seconds"] for c in calls) / len(calls)) if calls else 0
 
-    avg_duration = db.query(func.avg(Call.duration_seconds)).scalar() or 0
-
-    sentiment_counts = {}
-    for sentiment in ["positive", "neutral", "negative"]:
-        count = db.query(Call).filter(Call.sentiment == sentiment).count()
-        sentiment_counts[sentiment] = count
-
-    win_rate = round(won_deals / (won_deals + lost_deals) * 100) if (won_deals + lost_deals) > 0 else 0
+    sentiment: dict[str, int] = {}
+    for s in ("positive", "neutral", "negative"):
+        sentiment[s] = sum(1 for c in calls if c.get("sentiment") == s)
 
     return {
         "deals": {
-            "total": total_deals,
-            "open": open_deals,
-            "won": won_deals,
-            "lost": lost_deals,
+            "total": len(deals),
+            "open": len(open_d),
+            "won": len(won),
+            "lost": len(lost),
             "win_rate": win_rate,
             "pipeline_value": pipeline_value,
             "won_value": won_value,
         },
         "calls": {
-            "total": total_calls,
-            "recent_30d": recent_calls,
-            "avg_duration_seconds": round(avg_duration),
+            "total": len(calls),
+            "recent_30d": len(recent),
+            "avg_duration_seconds": round(avg_dur),
         },
-        "sentiment": sentiment_counts,
+        "sentiment": sentiment,
     }
 
 
 @router.get("/pipeline")
-def get_pipeline(db: Session = Depends(get_db)):
-    stages = ["prospect", "qualify", "demo", "proposal", "negotiation", "closed_won", "closed_lost"]
-    stage_labels = {
-        "prospect": "見込み客",
-        "qualify": "資格確認",
-        "demo": "デモ",
-        "proposal": "提案",
-        "negotiation": "交渉",
-        "closed_won": "成約",
-        "closed_lost": "失注",
-    }
-    pipeline = []
-    for stage in stages:
-        deals = db.query(Deal).filter(Deal.stage == stage).all()
-        total_amount = sum(d.amount for d in deals)
-        pipeline.append({
+async def get_pipeline():
+    db = get_db()
+    deals, _ = await _fetch_all(db)
+
+    return [
+        {
             "stage": stage,
-            "label": stage_labels[stage],
-            "count": len(deals),
-            "total_amount": total_amount,
-        })
-    return pipeline
+            "label": STAGE_LABELS[stage],
+            "count": sum(1 for d in deals if d["stage"] == stage),
+            "total_amount": sum(d["amount"] for d in deals if d["stage"] == stage),
+        }
+        for stage in ALL_STAGES
+    ]
 
 
 @router.get("/call-trends")
-def get_call_trends(days: int = 30, db: Session = Depends(get_db)):
-    now = datetime.utcnow()
-    start = now - timedelta(days=days)
+async def get_call_trends(days: int = 30):
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    cutoff = (now - timedelta(days=days)).isoformat()
 
-    calls = db.query(Call).filter(Call.date >= start).all()
+    calls = await db.table("calls").gte("date", cutoff).execute()
 
-    daily = {}
-    current = start
-    while current <= now:
-        key = current.strftime("%Y-%m-%d")
-        daily[key] = {"date": key, "count": 0, "avg_duration": 0, "durations": []}
-        current += timedelta(days=1)
+    # Build daily buckets
+    daily: dict[str, dict] = {}
+    for i in range(days + 1):
+        key = (now - timedelta(days=days - i)).strftime("%Y-%m-%d")
+        daily[key] = {"date": key, "count": 0, "_dur": []}
 
-    for call in calls:
-        key = call.date.strftime("%Y-%m-%d")
+    for c in calls:
+        key = (c.get("date") or "")[:10]
         if key in daily:
             daily[key]["count"] += 1
-            daily[key]["durations"].append(call.duration_seconds)
+            daily[key]["_dur"].append(c["duration_seconds"])
 
     result = []
-    for key in sorted(daily.keys()):
+    for key in sorted(daily):
         entry = daily[key]
-        durations = entry.pop("durations")
-        entry["avg_duration"] = round(sum(durations) / len(durations)) if durations else 0
+        durs = entry.pop("_dur")
+        entry["avg_duration"] = round(sum(durs) / len(durs)) if durs else 0
         result.append(entry)
-
     return result
+
+
+async def _fetch_all(db) -> tuple[list, list]:
+    import asyncio
+    deals, calls = await asyncio.gather(
+        db.table("deals").execute(),
+        db.table("calls").execute(),
+    )
+    return deals, calls

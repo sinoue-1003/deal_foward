@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 
-const BASE = '/api'
+// In production (Cloudflare Pages), set VITE_API_BASE_URL to the Worker URL:
+//   e.g. https://dealforward-api.YOUR_ACCOUNT.workers.dev
+// In local dev, leave unset — Vite proxy forwards /api → localhost:8000.
+const BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 
 async function apiFetch(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {

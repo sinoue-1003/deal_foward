@@ -1,118 +1,85 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
+from fastapi import APIRouter, HTTPException, Request
 
-from database import get_db
-from models.deal import Deal
-from models.call import Call
+from db import get_db
 
 router = APIRouter(prefix="/api/deals", tags=["deals"])
 
 VALID_STAGES = ["prospect", "qualify", "demo", "proposal", "negotiation", "closed_won", "closed_lost"]
 
 
-class DealCreate(BaseModel):
-    name: str
-    company: str
-    stage: str
-    amount: float
-    probability: int
-    owner: str
-    contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
-    notes: Optional[str] = None
-    competitors: list[str] = []
-    close_date: Optional[datetime] = None
-
-
-class DealUpdate(BaseModel):
-    name: Optional[str] = None
-    company: Optional[str] = None
-    stage: Optional[str] = None
-    amount: Optional[float] = None
-    probability: Optional[int] = None
-    owner: Optional[str] = None
-    contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
-    notes: Optional[str] = None
-    competitors: Optional[list[str]] = None
-    close_date: Optional[datetime] = None
-
-
 @router.get("/")
-def list_deals(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    deals = db.query(Deal).order_by(Deal.created_at.desc()).offset(skip).limit(limit).all()
-    return [_serialize(d) for d in deals]
+async def list_deals(skip: int = 0, limit: int = 100):
+    db = get_db()
+    return await db.table("deals").order("created_at", desc=True).offset(skip).limit(limit).execute()
 
 
 @router.get("/{deal_id}")
-def get_deal(deal_id: int, db: Session = Depends(get_db)):
-    deal = db.query(Deal).filter(Deal.id == deal_id).first()
-    if not deal:
+async def get_deal(deal_id: int):
+    db = get_db()
+    rows = await db.table("deals").eq("id", deal_id).limit(1).execute()
+    if not rows:
         raise HTTPException(status_code=404, detail="Deal not found")
-    calls = db.query(Call).filter(Call.deal_id == deal_id).order_by(Call.date.desc()).all()
-    result = _serialize(deal)
-    result["calls"] = [
-        {"id": c.id, "title": c.title, "date": c.date.isoformat() if c.date else None,
-         "duration_seconds": c.duration_seconds, "sentiment": c.sentiment}
+
+    deal = rows[0]
+    calls = await db.table("calls").eq("deal_id", deal_id).order("date", desc=True).execute()
+    deal["calls"] = [
+        {k: c[k] for k in ("id", "title", "date", "duration_seconds", "sentiment") if k in c}
         for c in calls
     ]
-    return result
+    return deal
 
 
 @router.post("/")
-def create_deal(payload: DealCreate, db: Session = Depends(get_db)):
-    if payload.stage not in VALID_STAGES:
-        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {VALID_STAGES}")
-    deal = Deal(**payload.model_dump())
-    db.add(deal)
-    db.commit()
-    db.refresh(deal)
-    return _serialize(deal)
+async def create_deal(request: Request):
+    payload: dict = await request.json()
+    stage = payload.get("stage", "prospect")
+    if stage not in VALID_STAGES:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {stage}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    data = {
+        "name": payload.get("name", "").strip(),
+        "company": payload.get("company", "").strip(),
+        "stage": stage,
+        "amount": float(payload.get("amount", 0)),
+        "probability": int(payload.get("probability", 10)),
+        "owner": payload.get("owner", "").strip(),
+        "contact_name": payload.get("contact_name"),
+        "contact_email": payload.get("contact_email"),
+        "notes": payload.get("notes"),
+        "competitors": payload.get("competitors", []),
+        "close_date": payload.get("close_date"),
+        "created_at": now,
+        "updated_at": now,
+    }
+    if not data["name"] or not data["company"] or not data["owner"]:
+        raise HTTPException(status_code=400, detail="name, company, owner are required")
+
+    db = get_db()
+    return await db.table("deals").insert(data)
 
 
 @router.patch("/{deal_id}")
-def update_deal(deal_id: int, payload: DealUpdate, db: Session = Depends(get_db)):
-    deal = db.query(Deal).filter(Deal.id == deal_id).first()
-    if not deal:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    if payload.stage and payload.stage not in VALID_STAGES:
-        raise HTTPException(status_code=400, detail=f"Invalid stage. Must be one of: {VALID_STAGES}")
+async def update_deal(deal_id: int, request: Request):
+    payload: dict = await request.json()
+    if "stage" in payload and payload["stage"] not in VALID_STAGES:
+        raise HTTPException(status_code=400, detail=f"Invalid stage: {payload['stage']}")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(deal, field, value)
-    deal.updated_at = datetime.utcnow()
-    db.commit()
-    db.refresh(deal)
-    return _serialize(deal)
+    allowed = {"name", "company", "stage", "amount", "probability", "owner",
+               "contact_name", "contact_email", "notes", "competitors", "close_date"}
+    data = {k: v for k, v in payload.items() if k in allowed}
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    db = get_db()
+    rows = await db.table("deals").eq("id", deal_id).limit(1).execute()
+    if not rows:
+        raise HTTPException(status_code=404, detail="Deal not found")
+    return await db.table("deals").eq("id", deal_id).update(data)
 
 
 @router.delete("/{deal_id}")
-def delete_deal(deal_id: int, db: Session = Depends(get_db)):
-    deal = db.query(Deal).filter(Deal.id == deal_id).first()
-    if not deal:
-        raise HTTPException(status_code=404, detail="Deal not found")
-    db.delete(deal)
-    db.commit()
+async def delete_deal(deal_id: int):
+    db = get_db()
+    await db.table("deals").eq("id", deal_id).delete()
     return {"ok": True}
-
-
-def _serialize(deal: Deal) -> dict:
-    return {
-        "id": deal.id,
-        "name": deal.name,
-        "company": deal.company,
-        "stage": deal.stage,
-        "amount": deal.amount,
-        "probability": deal.probability,
-        "owner": deal.owner,
-        "contact_name": deal.contact_name,
-        "contact_email": deal.contact_email,
-        "notes": deal.notes,
-        "competitors": deal.competitors or [],
-        "close_date": deal.close_date.isoformat() if deal.close_date else None,
-        "created_at": deal.created_at.isoformat() if deal.created_at else None,
-        "updated_at": deal.updated_at.isoformat() if deal.updated_at else None,
-    }
