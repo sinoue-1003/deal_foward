@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import calls, deals, analytics
+from routers import calls, deals, analytics, bots
 
 app = FastAPI(title="DealForward API", version="1.0.0")
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(calls.router)
 app.include_router(deals.router)
 app.include_router(analytics.router)
+app.include_router(bots.router)
 
 
 @app.get("/api/health")
