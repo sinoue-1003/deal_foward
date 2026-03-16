@@ -1,16 +1,20 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Phone, Briefcase, BarChart2, Zap } from 'lucide-react'
+import { LayoutDashboard, Globe, MessageSquare, Users, Calendar, BarChart2, Zap } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
-import Calls from './pages/Calls'
-import CallDetail from './pages/CallDetail'
-import Deals from './pages/Deals'
-import DealDetail from './pages/DealDetail'
+import Visitors from './pages/Visitors'
+import Conversations from './pages/Conversations'
+import ConversationDetail from './pages/ConversationDetail'
+import Leads from './pages/Leads'
+import LeadDetail from './pages/LeadDetail'
+import Meetings from './pages/Meetings'
 import Analytics from './pages/Analytics'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'ダッシュボード' },
-  { to: '/calls', icon: Phone, label: '通話' },
-  { to: '/deals', icon: Briefcase, label: 'ディール' },
+  { to: '/visitors', icon: Globe, label: '訪問者' },
+  { to: '/conversations', icon: MessageSquare, label: 'AI会話' },
+  { to: '/leads', icon: Users, label: 'リード' },
+  { to: '/meetings', icon: Calendar, label: 'ミーティング' },
   { to: '/analytics', icon: BarChart2, label: '分析' },
 ]
 
@@ -22,7 +26,7 @@ export default function App() {
         <aside className="w-56 bg-gray-900 flex flex-col flex-shrink-0">
           <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
             <Zap className="text-brand-500" size={22} />
-            <span className="text-white font-bold text-lg tracking-tight">DealForward</span>
+            <span className="text-white font-bold text-lg tracking-tight">Breakout</span>
           </div>
           <nav className="flex-1 py-4 px-3 space-y-1">
             {navItems.map(({ to, icon: Icon, label }) => (
@@ -58,10 +62,12 @@ export default function App() {
         <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/calls" element={<Calls />} />
-            <Route path="/calls/:id" element={<CallDetail />} />
-            <Route path="/deals" element={<Deals />} />
-            <Route path="/deals/:id" element={<DealDetail />} />
+            <Route path="/visitors" element={<Visitors />} />
+            <Route path="/conversations" element={<Conversations />} />
+            <Route path="/conversations/:id" element={<ConversationDetail />} />
+            <Route path="/leads" element={<Leads />} />
+            <Route path="/leads/:id" element={<LeadDetail />} />
+            <Route path="/meetings" element={<Meetings />} />
             <Route path="/analytics" element={<Analytics />} />
           </Routes>
         </main>
