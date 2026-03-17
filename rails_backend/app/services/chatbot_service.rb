@@ -50,12 +50,51 @@ class ChatbotService
       )
     end
 
+    # Auto-complete any pending customer step in the active playbook
+    complete_customer_step!(session, user_message)
+
     { reply: bot_reply, intent_score: session.intent_score }
   rescue StandardError => e
     { reply: "申し訳ありません。しばらくお待ちください。", intent_score: session.intent_score }
   end
 
   private
+
+  # When a customer sends a chatbot message, check if the active playbook
+  # has a pending customer step and auto-complete it with their message.
+  def complete_customer_step!(session, user_message)
+    return unless session.company_id
+
+    playbook = Playbook.where(company_id: session.company_id, status: "active").last
+    return unless playbook
+
+    steps = playbook.steps
+    idx = steps.index { |s| s["status"] == "pending" && s["executor_type"] == "customer" }
+    return unless idx
+
+    steps = steps.dup
+    steps[idx] = steps[idx].merge(
+      "status"       => "completed",
+      "executed_by"  => "customer",
+      "completed_at" => Time.current.iso8601,
+      "result"       => "顧客返信: #{user_message.to_s[0..300]}"
+    )
+
+    new_current = steps.index { |s| s["status"] == "pending" } || playbook.current_step
+    playbook.update!(steps: steps, current_step: new_current)
+    playbook.maybe_auto_complete!
+
+    PlaybookExecution.create!(
+      playbook:    playbook,
+      step_index:  idx,
+      status:      "completed",
+      result:      "顧客返信: #{user_message.to_s[0..300]}",
+      executed_by: "customer",
+      executed_at: Time.current
+    )
+  rescue StandardError => e
+    Rails.logger.error("ChatbotService#complete_customer_step! error: #{e.message}")
+  end
 
   def build_messages(history, new_message)
     hist = (history || []).map { |m| { role: m["role"], content: m["content"] } }

@@ -27,6 +27,7 @@ module Api
         company: pb.company,
         contact: pb.contact,
         status_summary: pb.status_summary,
+        next_action: pb.next_action,
         executions: executions,
         total_steps: pb.steps.size,
         completed_steps: pb.steps.count { |s| s["status"] == "completed" }
@@ -66,27 +67,40 @@ module Api
     end
 
     # POST /api/playbooks/:id/execute
-    # Manually execute the next step (by human)
+    # Manually execute or skip a step (by human).
+    # Optional params: step_index (target specific step), skip (bool), result (string)
     def execute
       pb = Playbook.find(params[:id])
-      step = pb.next_action
-      return render json: { message: "No pending steps" }, status: :unprocessable_entity unless step
+      is_skip = params[:skip].in?([true, "true", "1"])
+      new_status = is_skip ? "skipped" : "completed"
+      default_result = is_skip ? "スキップ" : "手動実行完了"
 
-      idx = pb.steps.index(step)
+      if params[:step_index].present?
+        idx = params[:step_index].to_i
+        step = pb.steps[idx]
+        return render json: { error: "Step not found" }, status: :not_found unless step
+        return render json: { error: "Step is not pending" }, status: :unprocessable_entity unless step["status"] == "pending"
+      else
+        step = pb.next_action
+        return render json: { message: "No pending steps" }, status: :unprocessable_entity unless step
+        idx = pb.steps.index(step)
+      end
+
       steps = pb.steps.dup
       steps[idx] = steps[idx].merge(
-        "status" => "completed",
+        "status" => new_status,
         "executed_by" => "human",
         "completed_at" => Time.current.iso8601,
-        "result" => params[:result] || "手動実行完了"
+        "result" => params[:result] || default_result
       )
 
       new_current = steps.index { |s| s["status"] == "pending" } || pb.current_step
       pb.update!(steps: steps, current_step: new_current)
+      pb.maybe_auto_complete!
 
       PlaybookExecution.create!(
         playbook: pb, step_index: idx,
-        status: "completed", result: params[:result] || "手動実行完了",
+        status: new_status, result: params[:result] || default_result,
         executed_by: "human", executed_at: Time.current
       )
 
@@ -96,7 +110,11 @@ module Api
     private
 
     def playbook_params
-      params.permit(:title, :status, :objective, :situation_summary, :company_id, :contact_id, :created_by, steps: [])
+      params.permit(
+        :title, :status, :objective, :situation_summary, :company_id, :contact_id, :created_by,
+        steps: [:step, :action_type, :executor_type, :channel, :target, :template,
+                :due_in_hours, :status, :result, :completed_at, :executed_by]
+      )
     end
   end
 end
