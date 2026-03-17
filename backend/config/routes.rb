@@ -22,6 +22,10 @@ Rails.application.routes.draw do
       post   "runs/:id/reject",   to: "runs#reject"
     end
 
+    # OAuth 2.0 flows
+    get "oauth/:integration_type/authorize", to: "oauth#authorize"
+    get "oauth/callback",                    to: "oauth#callback"
+
     # Chatbot endpoints
     resources :chatbot_sessions, path: "chatbot/sessions", only: [:index, :show, :create] do
       member do

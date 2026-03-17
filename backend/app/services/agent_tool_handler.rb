@@ -183,7 +183,7 @@ class AgentToolHandler
   # ── Channel helpers ──────────────────────────────────────────────────────────
 
   def send_slack_message(integration, recipient, message)
-    token = integration.settings&.dig("access_token") || integration.settings&.dig("bot_token")
+    token = integration.config&.dig("access_token") || integration.config&.dig("bot_token")
     return { error: "Slack access token not configured" } if token.blank?
 
     response = Net::HTTP.post(
