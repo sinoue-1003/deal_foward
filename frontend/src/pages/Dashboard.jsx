@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi'
 import StatCard from '../components/StatCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 import IntentBadge from '../components/IntentBadge'
+import AgentRunPanel from '../components/AgentRunPanel'
 
 const INTEGRATION_TYPES = [
   { key: 'slack',       label: 'Slack' },
@@ -106,6 +107,9 @@ export default function Dashboard() {
 
         {/* Right column */}
         <div className="space-y-4">
+          {/* Agent Run Panel */}
+          <AgentRunPanel />
+
           {/* Integration Status */}
           <div className="card">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">連携ステータス</h2>

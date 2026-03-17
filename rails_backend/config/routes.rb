@@ -13,6 +13,13 @@ Rails.application.routes.draw do
       get    "contacts/:company_id", to: "actions#contacts"
       get    "playbook/:id",    to: "actions#playbook"
       patch  "playbook/:id/step/:step_index", to: "actions#update_step"
+
+      # Agent run management
+      post   "run",               to: "runs#create"
+      get    "runs",              to: "runs#index"
+      get    "runs/:id",          to: "runs#show"
+      post   "runs/:id/approve",  to: "runs#approve"
+      post   "runs/:id/reject",   to: "runs#reject"
     end
 
     # Chatbot endpoints
