@@ -73,6 +73,7 @@ module Api
 
         new_current = steps.index { |s| s["status"] == "pending" } || pb.current_step
         pb.update!(steps: steps, current_step: new_current)
+        pb.maybe_auto_complete!
 
         PlaybookExecution.create!(
           playbook: pb, step_index: idx,

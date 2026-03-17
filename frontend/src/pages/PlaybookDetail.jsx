@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useState } from 'react'
-import { Bot, Play, Info, Clock } from 'lucide-react'
+import { Bot, Play, Info, Clock, Pause, RotateCcw, User } from 'lucide-react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../hooks/useApi'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -16,6 +16,7 @@ export default function PlaybookDetail() {
   const { id } = useParams()
   const { data: pb, loading, refetch } = useApi(`/api/playbooks/${id}`)
   const [executing, setExecuting] = useState(false)
+  const [toggling, setToggling] = useState(false)
 
   if (loading) return <LoadingSpinner />
   if (!pb) return <div className="p-6 text-gray-500">プレイブックが見つかりません</div>
@@ -36,6 +37,27 @@ export default function PlaybookDetail() {
     }
   }
 
+  async function skipStep(stepIndex) {
+    setExecuting(true)
+    try {
+      await api.post(`/api/playbooks/${id}/execute`, { step_index: stepIndex, skip: true })
+      refetch()
+    } finally {
+      setExecuting(false)
+    }
+  }
+
+  async function togglePause() {
+    setToggling(true)
+    try {
+      const newStatus = pb.status === 'active' ? 'paused' : 'active'
+      await api.patch(`/api/playbooks/${id}`, { status: newStatus })
+      refetch()
+    } finally {
+      setToggling(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -52,16 +74,38 @@ export default function PlaybookDetail() {
           </div>
           {pb.company?.name && <p className="text-gray-500 text-sm mt-1">{pb.company.name}</p>}
         </div>
-        {pb.status === 'active' && summary.next_action && (
-          <button
-            onClick={executeNextStep}
-            disabled={executing}
-            className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50"
-          >
-            <Play size={14} />
-            {executing ? '実行中...' : '次のステップを実行'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {pb.status === 'active' && summary.next_action && (
+            <button
+              onClick={executeNextStep}
+              disabled={executing || toggling}
+              className="flex items-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50"
+            >
+              <Play size={14} />
+              {executing ? '実行中...' : '次のステップを実行'}
+            </button>
+          )}
+          {pb.status === 'active' && (
+            <button
+              onClick={togglePause}
+              disabled={toggling || executing}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-200 disabled:opacity-50"
+            >
+              <Pause size={14} />
+              {toggling ? '処理中...' : '一時停止'}
+            </button>
+          )}
+          {pb.status === 'paused' && (
+            <button
+              onClick={togglePause}
+              disabled={toggling}
+              className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 text-sm font-medium rounded-lg hover:bg-green-200 disabled:opacity-50"
+            >
+              <RotateCcw size={14} />
+              {toggling ? '処理中...' : '再開'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
@@ -104,6 +148,9 @@ export default function PlaybookDetail() {
                 step={step}
                 index={i}
                 isCurrent={i === pb.current_step && pb.status === 'active'}
+                canSkip={pb.status === 'active' && !executing}
+                onSkip={() => skipStep(i)}
+                playbookCreatedAt={pb.created_at}
               />
             ))}
           </div>
@@ -129,14 +176,28 @@ export default function PlaybookDetail() {
               <Clock size={14} /> 実行ログ
             </h2>
             {pb.executions?.length ? (
-              <div className="space-y-2">
-                {pb.executions.slice(0, 5).map((ex) => (
-                  <div key={ex.id} className="text-xs text-gray-600 border-l-2 border-gray-100 pl-2">
-                    <p className="font-medium">Step {ex.step_index + 1}: {ex.status}</p>
-                    {ex.result && <p className="text-gray-500">{ex.result}</p>}
-                    <p className="text-gray-400">{ex.executed_by} · {ex.executed_at ? new Date(ex.executed_at).toLocaleString('ja-JP') : ''}</p>
-                  </div>
-                ))}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {pb.executions.map((ex) => {
+                  const isAI = ex.executed_by === 'ai_agent'
+                  return (
+                    <div
+                      key={ex.id}
+                      className={`text-xs text-gray-600 border-l-2 pl-2 ${isAI ? 'border-purple-300' : 'border-gray-200'}`}
+                    >
+                      <p className="font-medium flex items-center gap-1">
+                        {isAI
+                          ? <Bot size={10} className="text-purple-500" />
+                          : <User size={10} className="text-gray-400" />
+                        }
+                        Step {ex.step_index + 1}: {ex.status}
+                      </p>
+                      {ex.result && <p className="text-gray-500 mt-0.5">{ex.result}</p>}
+                      <p className="text-gray-400 mt-0.5">
+                        {isAI ? 'AIエージェント' : '人間'} · {ex.executed_at ? new Date(ex.executed_at).toLocaleString('ja-JP') : ''}
+                      </p>
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <p className="text-xs text-gray-400">実行ログなし</p>

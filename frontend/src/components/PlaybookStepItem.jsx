@@ -21,8 +21,24 @@ const ACTION_LABELS = {
   follow_up_call:      'フォローコール',
 }
 
-export default function PlaybookStepItem({ step, index, isCurrent }) {
+function formatDeadline(playbookCreatedAt, dueInHours) {
+  if (!playbookCreatedAt || !dueInHours) return null
+  const deadline = new Date(new Date(playbookCreatedAt).getTime() + dueInHours * 3600000)
+  const now = new Date()
+  const diffMs = deadline - now
+  const isPast = diffMs < 0
+  const isUrgent = !isPast && diffMs < 24 * 3600000
+
+  const formatted = deadline.toLocaleString('ja-JP', {
+    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  })
+
+  return { formatted, isPast, isUrgent }
+}
+
+export default function PlaybookStepItem({ step, index, isCurrent, canSkip, onSkip, playbookCreatedAt }) {
   const icon = STATUS_ICON[step.status] || STATUS_ICON.pending
+  const deadline = step.status === 'pending' ? formatDeadline(playbookCreatedAt, step.due_in_hours) : null
 
   return (
     <div className={`flex gap-4 p-4 rounded-lg border transition-colors ${
@@ -41,6 +57,14 @@ export default function PlaybookStepItem({ step, index, isCurrent }) {
               現在のステップ
             </span>
           )}
+          {canSkip && step.status === 'pending' && (
+            <button
+              onClick={onSkip}
+              className="ml-auto text-xs text-gray-400 hover:text-amber-600 flex items-center gap-1 px-2 py-0.5 rounded hover:bg-amber-50 transition-colors"
+            >
+              <SkipForward size={12} /> スキップ
+            </button>
+          )}
         </div>
         {step.target && (
           <p className="text-xs text-gray-500 mt-1">対象: {step.target}</p>
@@ -51,8 +75,12 @@ export default function PlaybookStepItem({ step, index, isCurrent }) {
         {step.result && (
           <p className="text-xs text-green-600 mt-1 bg-green-50 px-2 py-1 rounded">結果: {step.result}</p>
         )}
-        {step.due_in_hours && step.status === 'pending' && (
-          <p className="text-xs text-gray-400 mt-1">期限: {step.due_in_hours}時間以内</p>
+        {deadline && (
+          <p className={`text-xs mt-1 ${
+            deadline.isPast ? 'text-red-500' : deadline.isUrgent ? 'text-amber-500' : 'text-gray-400'
+          }`}>
+            期限: {deadline.formatted}{deadline.isPast ? ' (期限超過)' : ''}
+          </p>
         )}
       </div>
     </div>
