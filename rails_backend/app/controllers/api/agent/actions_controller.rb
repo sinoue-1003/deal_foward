@@ -1,7 +1,7 @@
 module Api
   module Agent
     class ActionsController < Api::BaseController
-      before_action :authenticate_agent!
+      include AgentAuthentication
 
       # POST /api/agent/report
       def report
@@ -84,11 +84,6 @@ module Api
       end
 
       private
-
-      def authenticate_agent!
-        api_key = request.headers["X-Agent-Api-Key"]
-        render json: { error: "Unauthorized" }, status: :unauthorized unless api_key == ENV["AGENT_API_KEY"]
-      end
 
       def find_company
         Company.find(params[:company_id]) if params[:company_id].present?

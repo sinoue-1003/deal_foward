@@ -13,9 +13,11 @@ import Communications from './pages/Communications'
 import Deals from './pages/Deals'
 import DealDetail from './pages/DealDetail'
 import Analytics from './pages/Analytics'
+import AgentControl from './pages/AgentControl'
 
 const navItems = [
   { to: '/',               icon: LayoutDashboard, label: 'ダッシュボード' },
+  { to: '/agent',          icon: Bot,             label: 'AIエージェント' },
   { to: '/chatbot',        icon: MessageSquare,   label: 'チャットbot' },
   { to: '/playbooks',      icon: BookOpen,        label: 'プレイブック' },
   { to: '/communications', icon: Radio,           label: '通信・連携' },
@@ -74,6 +76,7 @@ export default function App() {
             <Route path="/deals"              element={<Deals />} />
             <Route path="/deals/:id"          element={<DealDetail />} />
             <Route path="/analytics"          element={<Analytics />} />
+            <Route path="/agent"              element={<AgentControl />} />
           </Routes>
         </main>
       </div>
