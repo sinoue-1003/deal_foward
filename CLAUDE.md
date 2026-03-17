@@ -1,188 +1,141 @@
 # CLAUDE.md — deal_foward AIアシスタントガイド
 
-> このファイルは、本リポジトリで作業するAIアシスタント（Claude、Copilot等）向けの
-> コンテキスト情報を提供します。プロジェクトの概要、コードベースの構造、開発ワークフロー、
-> 従うべき規約について説明しています。
+> このファイルは、本リポジトリで作業するAIアシスタント向けのコンテキスト情報を提供します。
 
 ## プロジェクト概要
 
-**deal_foward** は Gong.io に着想を得たレベニューインテリジェンスプラットフォームです。
-営業通話の録音・文字起こし・AI分析、ディール追跡、営業パフォーマンス分析を提供します。
+**deal_foward** は **営業AIエージェントと人間をつなぐコミュニケーションプラットフォーム**です。
+
+- 営業AIエージェントがAPIを通して通信情報を取得し、営業活動を自律実行
+- プラットフォームはAIエージェントの報告内容を保存し、AIが提示するプレイブックを可視化
+- 人間はダッシュボードでAIの活動を監視・承認・支援
+
+**フロー:**
+```
+サイト埋め込みチャットbot → リード検知 → AIがSlack/Teams分析
+    → 商談MTG参加・録画 → プレイブック自動生成
+    → エージェントがプレイブック実行・監視 → 人間がダッシュボードで把握
+```
 
 **リポジトリ:** `sinoue-1003/deal_foward`
 
 ## 技術スタック
 
-- **バックエンド:** Python 3.11+ / FastAPI / SQLAlchemy / SQLite
-- **フロントエンド:** React 18 / Vite / Tailwind CSS / Recharts
-- **AI連携:** Claude API (会話分析) / OpenAI Whisper API (文字起こし)
+- **バックエンド:** Ruby on Rails 8.1 (API mode) / PostgreSQL (Supabase)
+- **フロントエンド:** React 18 / Vite / Tailwind CSS / Recharts / Lucide React
+- **AI連携:** Claude API (`anthropic` gem) / OpenAI Whisper (`ruby-openai` gem)
 
 ## リポジトリの状態
 
-- **現在の状態:** 実装済み — バックエンドAPI・フロントエンドUI・デモデータ完備。
+- **現在の状態:** 実装済み — Railsバックエンド・フロントエンドUI完備
 - **メインブランチ:** master
-- **開発ブランチ:** AI支援作業では `claude/<説明>-<セッションID>` のパターンに従ってください。
+- **開発ブランチ:** `claude/<説明>-<セッションID>` パターン
 
 ## ディレクトリ構成
 
 ```
 deal_foward/
-├── CLAUDE.md                   # このファイル — AIアシスタント向けのコンテキストと規約
-├── start.sh                    # 一発起動スクリプト
-├── backend/                    # FastAPI バックエンド
-│   ├── main.py                 # エントリーポイント
-│   ├── database.py             # DB接続・初期化
-│   ├── requirements.txt
+├── CLAUDE.md
+├── start.sh                      # 一発起動スクリプト
+├── rails_backend/                # Ruby on Rails 8.1 API
+│   ├── Gemfile
 │   ├── .env.example
-│   ├── models/                 # SQLAlchemy モデル
-│   │   ├── call.py             # 通話モデル
-│   │   └── deal.py             # ディールモデル
-│   ├── routers/                # APIルーター
-│   │   ├── calls.py            # /api/calls
-│   │   ├── deals.py            # /api/deals
-│   │   └── analytics.py        # /api/analytics
-│   └── services/
-│       ├── ai_analysis.py      # Claude APIによる会話分析
-│       ├── transcription.py    # Whisper APIによる文字起こし
-│       └── seed.py             # デモデータ投入
-└── frontend/                   # React + Vite フロントエンド
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    ├── tailwind.config.js
+│   ├── config/
+│   │   ├── routes.rb
+│   │   ├── database.yml
+│   │   └── initializers/cors.rb
+│   ├── app/
+│   │   ├── controllers/api/
+│   │   │   ├── agent/actions_controller.rb  # AIエージェント専用API
+│   │   │   ├── chatbot_sessions_controller.rb
+│   │   │   ├── playbooks_controller.rb
+│   │   │   ├── communications_controller.rb
+│   │   │   ├── integrations_controller.rb
+│   │   │   ├── deals_controller.rb
+│   │   │   └── dashboard/
+│   │   ├── models/               # ActiveRecord models
+│   │   └── services/
+│   │       ├── ai_analysis_service.rb
+│   │       ├── chatbot_service.rb
+│   │       ├── playbook_generator_service.rb
+│   │       └── webhook_notifier_service.rb
+│   └── db/migrate/               # 9テーブルのマイグレーション
+└── frontend/                     # React + Vite
     └── src/
-        ├── App.jsx             # ルーティング・レイアウト
-        ├── index.css
-        ├── hooks/
-        │   └── useApi.js       # API呼び出しフック
-        ├── components/         # 共通UIコンポーネント
+        ├── App.jsx
+        ├── hooks/useApi.js
+        ├── components/
         │   ├── StatCard.jsx
-        │   ├── SentimentBadge.jsx
-        │   ├── StageBadge.jsx
-        │   └── LoadingSpinner.jsx
+        │   ├── ChannelBadge.jsx
+        │   ├── IntentBadge.jsx
+        │   ├── PlaybookStepItem.jsx
+        │   └── StageBadge.jsx
         └── pages/
-            ├── Dashboard.jsx   # ダッシュボード
-            ├── Calls.jsx       # 通話一覧
-            ├── CallDetail.jsx  # 通話詳細・AI分析
-            ├── Deals.jsx       # ディール一覧
-            ├── DealDetail.jsx  # ディール詳細
-            └── Analytics.jsx   # 分析・グラフ
+            ├── Dashboard.jsx
+            ├── Chatbot.jsx / ChatbotDetail.jsx
+            ├── Playbooks.jsx / PlaybookDetail.jsx
+            ├── Communications.jsx
+            ├── Deals.jsx / DealDetail.jsx
+            └── Analytics.jsx
 ```
+
+## 機能一覧
+
+1. **通信API連携** — Slack, Teams, Zoom, Google Meet, Salesforce, HubSpot
+2. **ダッシュボード** — AIエージェント活動・パイプライン・連携ステータス
+3. **チャットbot** — サイト埋め込みbot、インテント検知、自動プレイブック生成
+4. **営業プレイブック** — AIが生成、人間とAIが状況と次アクションを共有するビュー
+
+## AIエージェント向けAPI
+
+```
+# エージェント認証: X-Agent-Api-Key ヘッダー
+POST /api/agent/report                    # 活動報告
+POST /api/agent/request_context           # 会社の全コンテキスト取得
+POST /api/agent/trigger_playbook          # プレイブック生成依頼
+GET  /api/agent/communications            # 通信データ取得
+GET  /api/agent/playbook/:id              # プレイブック + status_summary取得
+PATCH /api/agent/playbook/:id/step/:n     # ステップ完了報告
+```
+
+プレイブックの `status_summary` フィールドにAIと人間の共有コンテキスト情報が含まれます。
 
 ## 開発ワークフロー
 
-### はじめに
+### 起動
 
-1. **前提条件:** Python 3.11+、Node.js 20+
-2. **環境設定:** `backend/.env.example` をコピーして `backend/.env` を作成し、APIキーを設定
-3. **一発起動:** `./start.sh`
+```bash
+./start.sh                    # バックエンド + フロントエンド同時起動
+```
 
-### よく使うコマンド
+### 個別起動
 
-| コマンド | 説明 |
-|---------|------|
-| `./start.sh` | バックエンドとフロントエンドを同時起動 |
-| `cd backend && uvicorn main:app --reload` | バックエンドのみ起動 (port 8000) |
-| `cd frontend && npm run dev` | フロントエンドのみ起動 (port 5173) |
-| `cd frontend && npm run build` | プロダクションビルド |
+```bash
+# Rails バックエンド
+cd rails_backend
+export PATH="/opt/rbenv/versions/3.3.6/bin:$PATH"
+bundle exec rails db:migrate
+bundle exec rails server -p 8000
 
-### テスト
+# フロントエンド
+cd frontend && npm run dev
+```
 
-_テストフレームワークはまだ設定されていません。_ テストが追加されたら、以下を
-ドキュメント化してください:
+### 環境変数
 
-- テストフレームワークとランナー
-- 全テスト実行と単一テスト実行の方法
-- テストファイルの配置場所と命名規則
-- 最低カバレッジ要件（ある場合）
-
-### リンティングとフォーマット
-
-_リンティング・フォーマットツールはまだ設定されていません。_ 追加されたら、以下を
-ドキュメント化してください:
-
-- 使用ツール（ESLint、Prettier、Ruff、Black等）
-- リンティングチェックと自動修正の実行方法
-- エディタ連携に関する注意事項
-
-## Git 規約
-
-### ブランチ命名
-
-- 機能ブランチ: `feature/<簡潔な説明>`
-- バグ修正: `fix/<簡潔な説明>`
-- AI支援ブランチ: `claude/<説明>-<セッションID>`
-
-### コミットメッセージ
-
-明確で説明的なコミットメッセージを心がけてください:
-
-- 命令形を使用する（「Add feature」であり「Added feature」ではない）
-- 件名行は72文字以内に収める
-- 重要な変更には「なぜ」を説明する本文を含める
-
-### プルリクエスト
-
-- PRは単一の関心事に集中させる
-- PR説明に概要とテスト計画を含める
-- レビュー依頼前にすべてのチェックが通過していることを確認する
-
-## コード規約
-
-_技術スタックが決定されたら定義予定。_ 確立されたら、以下をドキュメント化してください:
-
-- プログラミング言語とバージョン
-- フレームワークと主要ライブラリ
-- 準拠するコードスタイルガイドまたは標準
-- 命名規則（ファイル、変数、関数、クラス）
-- インポート順序のルール
-- エラーハンドリングパターン
-- ログ記録の規約
-
-## アーキテクチャ
-
-_アーキテクチャはまだ定義されていません。_ プロジェクトが形になったら、以下を
-ドキュメント化してください:
-
-- 高レベルのアーキテクチャ図または説明
-- 主要コンポーネントとその責務
-- コンポーネント間のデータフロー
-- 外部サービスとの連携
-- データベーススキーマまたはデータモデルの概要
-
-## 環境と設定
-
-_環境設定はまだありません。_ 追加されたら、以下をドキュメント化してください:
-
-- 必要な環境変数
-- 設定ファイルの場所とフォーマット
-- シークレット管理の方針
-- 開発・ステージング・本番環境の違い
+`rails_backend/.env.example` をコピーして `rails_backend/.env` を作成:
+```
+DATABASE_URL=postgresql://...
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
+AGENT_API_KEY=your-agent-api-key
+AGENT_WEBHOOK_URL=https://your-webhook-url.com/webhook
+```
 
 ## AIアシスタント向けガイドライン
 
-本リポジトリで作業する際、AIアシスタントは以下を守ってください:
-
-1. **まずこのファイルを読む** — 変更を加える前にプロジェクトのコンテキストを把握する。
-2. **更新を確認する** — このファイルはプロジェクト規約の信頼できる情報源であり、
-   プロジェクトの進化に伴い変更される可能性がある。
-3. **既存パターンに従う** — 新しい規約を導入するのではなく、周囲のコードのスタイルに
-   合わせる。
-4. **テストとリンティングを実行する** — ツールが設定されたら、コミット前に必ず実行する。
-5. **変更を集中させる** — 無関係なリファクタリングやスコープの拡大を避ける。
-6. **このファイルを更新する** — 新しいツールの追加、規約の変更、プロジェクト構造の
-   修正時に更新する。
-7. **シークレットをコミットしない** — APIキー、パスワード、トークンをコードに含めない。
-8. **作成より編集を優先する** — 可能な限り、新しいファイルを作成するのではなく、
-   既存のファイルを修正する。
-
-## このファイルの更新について
-
-この CLAUDE.md はリビングドキュメント（生きた文書）として扱ってください。
-以下のタイミングで更新してください:
-
-- 技術スタックが選定・構築されたとき
-- ビルド/テスト/リンティングのコマンドが確立されたとき
-- アーキテクチャに関する決定が行われたとき
-- 新しい規約やパターンが採用されたとき
-- ディレクトリ構成が大きく変更されたとき
+1. **まずこのファイルを読む** — 変更前にプロジェクトのコンテキストを把握する
+2. **既存パターンに従う** — Rails規約 (コントローラー/モデル/サービスの分離) を維持
+3. **シークレットをコミットしない** — APIキー、DBパスワードは.envで管理
+4. **作成より編集を優先する** — 既存ファイルを修正する
+5. **AIエージェントフレンドリー設計** — `/api/agent/*` エンドポイントはエージェントが使いやすい形式を維持

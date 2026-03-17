@@ -1,205 +1,154 @@
-import { Globe, MessageSquare, Calendar, TrendingUp, Users, Zap, ArrowRight, AlertCircle } from 'lucide-react'
+import { BookOpen, MessageSquare, Radio, Bot, Briefcase, TrendingUp, CheckCircle, AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import StatCard from '../components/StatCard'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { Link } from 'react-router-dom'
-import { format, parseISO } from 'date-fns'
-import { ja } from 'date-fns/locale'
+import IntentBadge from '../components/IntentBadge'
 
-const SCORE_LABEL = (score) => {
-  if (score >= 80) return { label: 'ホット', className: 'bg-red-100 text-red-700' }
-  if (score >= 60) return { label: 'ウォーム', className: 'bg-amber-100 text-amber-700' }
-  if (score >= 40) return { label: 'クール', className: 'bg-blue-100 text-blue-700' }
-  return { label: 'コールド', className: 'bg-gray-100 text-gray-600' }
-}
-
-function sentimentToScore(sentiment) {
-  if (sentiment === 'positive') return 82
-  if (sentiment === 'negative') return 35
-  return 61
-}
-
-function fmt(seconds) {
-  const m = Math.floor(seconds / 60)
-  return m >= 60 ? `${Math.floor(m / 60)}時間${m % 60}分` : `${m}分`
-}
-
-const MOCK_ALERTS = [
-  { id: 1, company: 'Salesforce Japan', page: '料金プランページ', score: 94, time: '2分前' },
-  { id: 2, company: 'トヨタ自動車', page: '機能詳細ページ', score: 87, time: '8分前' },
-  { id: 3, company: 'NTTデータ', page: 'デモ申込ページ', score: 91, time: '15分前' },
-]
-
-const MOCK_MEETINGS = [
-  { id: 1, name: '山田 花子', company: 'Salesforce Japan', time: '14:00', rep: '田中 太郎', status: 'confirmed' },
-  { id: 2, name: '鈴木 一郎', company: 'ソフトバンク株式会社', time: '16:30', rep: '佐藤 次郎', status: 'confirmed' },
+const INTEGRATION_TYPES = [
+  { key: 'slack',       label: 'Slack' },
+  { key: 'teams',       label: 'Teams' },
+  { key: 'zoom',        label: 'Zoom' },
+  { key: 'google_meet', label: 'Google Meet' },
+  { key: 'salesforce',  label: 'Salesforce' },
+  { key: 'hubspot',     label: 'HubSpot' },
 ]
 
 export default function Dashboard() {
-  const { data: overview, loading: ol } = useApi('/analytics/overview')
-  const { data: conversations, loading: cl } = useApi('/conversations/?limit=5')
+  const { data: overview, loading: l1 } = useApi('/api/dashboard/overview')
+  const { data: activity, loading: l2 } = useApi('/api/dashboard/agent_activity')
+  const { data: pipeline, loading: l3 } = useApi('/api/dashboard/pipeline')
+  const { data: playbooks, loading: l4 } = useApi('/api/playbooks?status=active')
+  const { data: sessions, loading: l5 } = useApi('/api/chatbot/sessions?limit=5')
+  const { data: integrations, loading: l6 } = useApi('/api/integrations')
 
-  if (ol || cl) return <LoadingSpinner />
-
-  const totalConversations = overview?.calls?.total || 0
-  const recentConversations = overview?.calls?.recent_30d || 0
-  const totalLeads = overview?.deals?.open || 0
-  const conversionRate = overview?.deals?.win_rate || 0
+  if (l1 || l2 || l3 || l4 || l5 || l6) return <LoadingSpinner />
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
+    <div className="p-6 space-y-6">
+      <div>
         <h1 className="text-2xl font-bold text-gray-900">ダッシュボード</h1>
-        <p className="text-gray-500 text-sm mt-1">インバウンドAI営業担当の概要</p>
+        <p className="text-gray-500 text-sm mt-1">AIエージェントと営業活動の概要</p>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label="アクティブ訪問者"
-          value="12"
-          sub="現在サイト閲覧中"
-          icon={Globe}
-          color="brand"
-        />
-        <StatCard
-          label="今日の予約"
-          value={MOCK_MEETINGS.length}
-          sub="ミーティング予約済み"
-          icon={Calendar}
-          color="green"
-        />
-        <StatCard
-          label="AI会話数 (30日)"
-          value={recentConversations}
-          sub={`累計 ${totalConversations}件`}
-          icon={MessageSquare}
-          color="purple"
-        />
-        <StatCard
-          label="リード転換率"
-          value={`${conversionRate}%`}
-          sub={`${totalLeads}件のアクティブリード`}
-          icon={TrendingUp}
-          color="amber"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="アクティブ PB" value={overview?.active_playbooks ?? 0} icon={BookOpen} color="brand" sub="実行中のプレイブック" />
+        <StatCard label="本日のチャット" value={overview?.today_chat_sessions ?? 0} icon={MessageSquare} color="green" sub={`合計 ${overview?.total_chat_sessions ?? 0} 件`} />
+        <StatCard label="解析済み通信" value={overview?.analyzed_communications ?? 0} icon={Radio} color="purple" sub={`全 ${overview?.total_communications ?? 0} 件`} />
+        <StatCard label="AIレポート (本日)" value={overview?.agent_reports_today ?? 0} icon={Bot} color="amber" sub={`累計 ${overview?.total_agent_reports ?? 0} 件`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        {/* High-intent alerts */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <AlertCircle size={16} className="text-red-500" /> 高インテント訪問者
+      <div className="grid grid-cols-3 gap-6">
+        {/* Agent Activity Feed */}
+        <div className="col-span-2 space-y-4">
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Bot size={16} className="text-brand-500" />
+              AIエージェント活動ログ
             </h2>
-            <Link to="/visitors" className="text-brand-600 text-sm hover:underline">すべて表示</Link>
-          </div>
-          <div className="space-y-3">
-            {MOCK_ALERTS.map(alert => {
-              const score = SCORE_LABEL(alert.score)
-              return (
-                <div key={alert.id} className="flex items-start gap-3 p-3 rounded-lg bg-red-50 border border-red-100">
-                  <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-700 text-xs font-bold flex-shrink-0">
-                    {alert.score}
+            {activity?.length ? (
+              <div className="space-y-2">
+                {activity.slice(0, 5).map((r) => (
+                  <div key={r.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50">
+                    <CheckCircle size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800">{r.action_taken}</p>
+                      {r.company_name && <p className="text-xs text-gray-500">{r.company_name}</p>}
+                    </div>
+                    <span className="text-xs text-gray-400 flex-shrink-0">
+                      {new Date(r.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{alert.company}</p>
-                    <p className="text-xs text-gray-500 mt-0.5 truncate">{alert.page}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{alert.time}</p>
-                  </div>
-                  <span className={`badge ${score.className} flex-shrink-0`}>{score.label}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Recent conversations */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <MessageSquare size={16} className="text-brand-600" /> 最近のAI会話
-            </h2>
-            <Link to="/conversations" className="text-brand-600 text-sm hover:underline">すべて表示</Link>
-          </div>
-          <div className="space-y-3">
-            {(conversations || []).map(conv => {
-              const score = sentimentToScore(conv.sentiment)
-              const scoreBadge = SCORE_LABEL(score)
-              return (
-                <Link key={conv.id} to={`/conversations/${conv.id}`}
-                  className="flex items-start justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-gray-900 group-hover:text-brand-600 truncate">{conv.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {conv.date ? format(parseISO(conv.date), 'M月d日 HH:mm', { locale: ja }) : '-'} · {fmt(conv.duration_seconds)}
-                    </p>
-                  </div>
-                  <span className={`badge ${scoreBadge.className} ml-2 flex-shrink-0`}>{score}</span>
-                </Link>
-              )
-            })}
-            {!conversations?.length && <p className="text-gray-400 text-sm text-center py-4">AI会話がありません</p>}
-          </div>
-        </div>
-
-        {/* Today's meetings */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Calendar size={16} className="text-green-600" /> 本日のミーティング
-            </h2>
-            <Link to="/meetings" className="text-brand-600 text-sm hover:underline">すべて表示</Link>
-          </div>
-          <div className="space-y-3">
-            {MOCK_MEETINGS.map(meeting => (
-              <div key={meeting.id} className="flex items-start gap-3 p-3 rounded-lg bg-green-50 border border-green-100">
-                <div className="text-center flex-shrink-0">
-                  <p className="text-lg font-bold text-green-700">{meeting.time}</p>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">{meeting.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{meeting.company}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">担当: {meeting.rep}</p>
-                </div>
-                <span className="badge bg-green-100 text-green-700 flex-shrink-0">確定</span>
+                ))}
               </div>
-            ))}
-            {MOCK_MEETINGS.length === 0 && <p className="text-gray-400 text-sm text-center py-4">予定なし</p>}
+            ) : (
+              <p className="text-sm text-gray-400">まだ活動ログがありません</p>
+            )}
+          </div>
+
+          {/* Active Playbooks */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <BookOpen size={16} className="text-brand-500" />
+              アクティブなプレイブック
+            </h2>
+            {playbooks?.length ? (
+              <div className="space-y-3">
+                {playbooks.slice(0, 4).map((pb) => {
+                  const total = pb.total_steps || 0
+                  const done = pb.completed_steps || 0
+                  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+                  return (
+                    <Link key={pb.id} to={`/playbooks/${pb.id}`} className="block p-3 border border-gray-100 rounded-lg hover:border-brand-300 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 truncate">{pb.title}</span>
+                        <span className="text-xs text-gray-500">{done}/{total}</span>
+                      </div>
+                      {pb.company_name && <p className="text-xs text-gray-500 mb-2">{pb.company_name}</p>}
+                      <div className="w-full bg-gray-100 rounded-full h-1.5">
+                        <div className="bg-brand-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      {pb.status_summary?.next_action && (
+                        <p className="text-xs text-brand-600 mt-1.5">
+                          次のアクション: {pb.status_summary.next_action.description || pb.status_summary.next_action.action_type}
+                        </p>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">アクティブなプレイブックはありません</p>
+            )}
+          </div>
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Integration Status */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">連携ステータス</h2>
+            <div className="space-y-2">
+              {INTEGRATION_TYPES.map((it) => {
+                const intg = integrations?.find((i) => i.integration_type === it.key)
+                const connected = intg?.status === 'connected'
+                return (
+                  <div key={it.key} className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">{it.label}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded ${connected ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {connected ? '接続済' : '未接続'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <Link to="/communications" className="text-xs text-brand-600 hover:underline mt-3 block">
+              連携管理 →
+            </Link>
+          </div>
+
+          {/* High-intent sessions */}
+          <div className="card">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">高インテントチャット</h2>
+            {sessions?.filter((s) => s.intent_score >= 60).length ? (
+              <div className="space-y-2">
+                {sessions.filter((s) => s.intent_score >= 60).slice(0, 3).map((s) => (
+                  <Link key={s.id} to={`/chatbot/${s.id}`} className="block p-2 rounded-lg hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-800 truncate">{s.company_name || '匿名'}</span>
+                      <IntentBadge score={s.intent_score} />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{s.message_count} メッセージ</p>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">高インテントセッションなし</p>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Sentiment / Lead Score Overview */}
-      {overview?.sentiment && (
-        <div className="card">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Zap size={16} className="text-brand-600" /> リードスコア分布
-          </h2>
-          <div className="flex gap-6">
-            {[
-              { key: 'positive', label: 'ホット (80+)', color: 'bg-red-500' },
-              { key: 'neutral', label: 'ウォーム (60-79)', color: 'bg-amber-400' },
-              { key: 'negative', label: 'クール (40-59)', color: 'bg-blue-400' },
-            ].map(({ key, label, color }) => {
-              const count = overview.sentiment[key] || 0
-              const total = Object.values(overview.sentiment).reduce((a, b) => a + b, 0)
-              const pct = total > 0 ? Math.round(count / total * 100) : 0
-              return (
-                <div key={key} className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm text-gray-600">{label}</span>
-                    <span className="text-sm font-medium">{count}件 ({pct}%)</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

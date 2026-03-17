@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+bundle exec rails db:migrate 2>/dev/null || echo "DB migration skipped (check DATABASE_URL)"
+exec "$@"

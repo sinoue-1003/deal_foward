@@ -1,32 +1,41 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./rails_backend
+      dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AGENT_API_KEY=${AGENT_API_KEY:-dev-agent-key}
+      - AGENT_WEBHOOK_URL=${AGENT_WEBHOOK_URL:-}
+      - RAILS_ENV=development
     volumes:
-      - ./backend:/app
-      - backend_data:/app/data
-    env_file:
-      - ./backend/.env
+      - ./rails_backend:/app
+      - bundle_cache:/usr/local/bundle
+    command: bundle exec rails server -p 8000 -b 0.0.0.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 3
+      retries: 5
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "5173:5173"
+    environment:
+      - API_URL=http://backend:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    environment:
-      # Vite proxy forwards /api to this URL (server-side, not browser)
-      - API_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
 
 volumes:
-  backend_data:
+  bundle_cache:

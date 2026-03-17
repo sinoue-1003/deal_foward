@@ -1,34 +1,39 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { LayoutDashboard, Globe, MessageSquare, Users, Calendar, BarChart2, Zap } from 'lucide-react'
+import {
+  LayoutDashboard, MessageSquare, BookOpen,
+  Radio, BarChart3, Briefcase, Bot
+} from 'lucide-react'
+
 import Dashboard from './pages/Dashboard'
-import Visitors from './pages/Visitors'
-import Conversations from './pages/Conversations'
-import ConversationDetail from './pages/ConversationDetail'
-import Leads from './pages/Leads'
-import LeadDetail from './pages/LeadDetail'
-import Meetings from './pages/Meetings'
+import Chatbot from './pages/Chatbot'
+import ChatbotDetail from './pages/ChatbotDetail'
+import Playbooks from './pages/Playbooks'
+import PlaybookDetail from './pages/PlaybookDetail'
+import Communications from './pages/Communications'
+import Deals from './pages/Deals'
+import DealDetail from './pages/DealDetail'
 import Analytics from './pages/Analytics'
 
 const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'ダッシュボード' },
-  { to: '/visitors', icon: Globe, label: '訪問者' },
-  { to: '/conversations', icon: MessageSquare, label: 'AI会話' },
-  { to: '/leads', icon: Users, label: 'リード' },
-  { to: '/meetings', icon: Calendar, label: 'ミーティング' },
-  { to: '/analytics', icon: BarChart2, label: '分析' },
+  { to: '/',               icon: LayoutDashboard, label: 'ダッシュボード' },
+  { to: '/chatbot',        icon: MessageSquare,   label: 'チャットbot' },
+  { to: '/playbooks',      icon: BookOpen,        label: 'プレイブック' },
+  { to: '/communications', icon: Radio,           label: '通信・連携' },
+  { to: '/deals',          icon: Briefcase,       label: '商談' },
+  { to: '/analytics',      icon: BarChart3,       label: 'アナリティクス' },
 ]
 
 export default function App() {
   return (
     <BrowserRouter>
       <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
         <aside className="w-56 bg-gray-900 flex flex-col flex-shrink-0">
           <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
-            <Zap className="text-brand-500" size={22} />
-            <span className="text-white font-bold text-lg tracking-tight">Breakout</span>
+            <Bot className="text-brand-500" size={22} />
+            <span className="text-white font-bold text-lg tracking-tight">Deal Forward</span>
           </div>
-          <nav className="flex-1 py-4 px-3 space-y-1">
+          <p className="text-gray-500 text-xs px-5 pb-3">AI営業プラットフォーム</p>
+          <nav className="flex-1 py-2 px-3 space-y-1">
             {navItems.map(({ to, icon: Icon, label }) => (
               <NavLink
                 key={to}
@@ -49,26 +54,26 @@ export default function App() {
           </nav>
           <div className="px-5 py-4 border-t border-gray-700">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-bold">田</div>
+              <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-white text-sm font-bold">A</div>
               <div>
-                <p className="text-white text-sm font-medium">田中 太郎</p>
+                <p className="text-white text-sm font-medium">Admin</p>
                 <p className="text-gray-400 text-xs">営業マネージャー</p>
               </div>
             </div>
           </div>
         </aside>
 
-        {/* Main content */}
         <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/visitors" element={<Visitors />} />
-            <Route path="/conversations" element={<Conversations />} />
-            <Route path="/conversations/:id" element={<ConversationDetail />} />
-            <Route path="/leads" element={<Leads />} />
-            <Route path="/leads/:id" element={<LeadDetail />} />
-            <Route path="/meetings" element={<Meetings />} />
-            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/"                   element={<Dashboard />} />
+            <Route path="/chatbot"            element={<Chatbot />} />
+            <Route path="/chatbot/:id"        element={<ChatbotDetail />} />
+            <Route path="/playbooks"          element={<Playbooks />} />
+            <Route path="/playbooks/:id"      element={<PlaybookDetail />} />
+            <Route path="/communications"     element={<Communications />} />
+            <Route path="/deals"              element={<Deals />} />
+            <Route path="/deals/:id"          element={<DealDetail />} />
+            <Route path="/analytics"          element={<Analytics />} />
           </Routes>
         </main>
       </div>
