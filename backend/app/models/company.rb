@@ -7,4 +7,7 @@ class Company < ApplicationRecord
   has_many :deals
 
   validates :name, presence: true
+  validates :employee_count, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
+  validates :annual_revenue, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :capital, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, allow_nil: true
 end
