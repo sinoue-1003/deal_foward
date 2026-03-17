@@ -112,7 +112,7 @@ module Api
     def playbook_params
       params.permit(
         :title, :status, :objective, :situation_summary, :company_id, :contact_id, :created_by,
-        steps: [:step, :action_type, :channel, :target, :template,
+        steps: [:step, :action_type, :executor_type, :channel, :target, :template,
                 :due_in_hours, :status, :result, :completed_at, :executed_by]
       )
     end

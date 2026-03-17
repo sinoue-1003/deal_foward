@@ -38,6 +38,7 @@ class Playbook < ApplicationRecord
       next_action: next_act ? {
         step: next_act["step"],
         action_type: next_act["action_type"],
+        executor_type: next_act["executor_type"],
         channel: next_act["channel"],
         description: next_act["template"]
       } : nil,

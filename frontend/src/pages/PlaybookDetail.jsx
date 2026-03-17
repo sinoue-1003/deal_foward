@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useState } from 'react'
-import { Bot, Play, Info, Clock, Pause, RotateCcw, User } from 'lucide-react'
+import { Bot, Play, Info, Clock, Pause, RotateCcw, User, MessageCircle } from 'lucide-react'
 import { useApi } from '../hooks/useApi'
 import { api } from '../hooks/useApi'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -75,7 +75,7 @@ export default function PlaybookDetail() {
           {pb.company?.name && <p className="text-gray-500 text-sm mt-1">{pb.company.name}</p>}
         </div>
         <div className="flex items-center gap-2">
-          {pb.status === 'active' && summary.next_action && (
+          {pb.status === 'active' && summary.next_action && summary.next_action.executor_type !== 'customer' && (
             <button
               onClick={executeNextStep}
               disabled={executing || toggling}
@@ -84,6 +84,12 @@ export default function PlaybookDetail() {
               <Play size={14} />
               {executing ? '実行中...' : '次のステップを実行'}
             </button>
+          )}
+          {pb.status === 'active' && summary.next_action?.executor_type === 'customer' && (
+            <span className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 text-sm font-medium rounded-lg">
+              <MessageCircle size={14} />
+              顧客の返信待ち
+            </span>
           )}
           {pb.status === 'active' && (
             <button

@@ -1,4 +1,4 @@
-import { CheckCircle, Circle, Loader, XCircle, SkipForward } from 'lucide-react'
+import { CheckCircle, Circle, Loader, XCircle, SkipForward, Bot, User, MessageCircle } from 'lucide-react'
 import ChannelBadge from './ChannelBadge'
 
 const STATUS_ICON = {
@@ -7,6 +7,12 @@ const STATUS_ICON = {
   failed:      <XCircle      className="text-red-500 w-5 h-5" />,
   skipped:     <SkipForward  className="text-gray-400 w-5 h-5" />,
   pending:     <Circle       className="text-gray-300 w-5 h-5" />,
+}
+
+const EXECUTOR_CONFIG = {
+  ai:       { label: 'AI実行',     cls: 'bg-purple-50 text-purple-600',  icon: <Bot size={10} /> },
+  human:    { label: '担当者',     cls: 'bg-gray-100 text-gray-600',     icon: <User size={10} /> },
+  customer: { label: '顧客対応待ち', cls: 'bg-blue-50 text-blue-600',   icon: <MessageCircle size={10} /> },
 }
 
 const ACTION_LABELS = {
@@ -39,6 +45,7 @@ function formatDeadline(playbookCreatedAt, dueInHours) {
 export default function PlaybookStepItem({ step, index, isCurrent, canSkip, onSkip, playbookCreatedAt }) {
   const icon = STATUS_ICON[step.status] || STATUS_ICON.pending
   const deadline = step.status === 'pending' ? formatDeadline(playbookCreatedAt, step.due_in_hours) : null
+  const executor = EXECUTOR_CONFIG[step.executor_type]
 
   return (
     <div className={`flex gap-4 p-4 rounded-lg border transition-colors ${
@@ -51,13 +58,18 @@ export default function PlaybookStepItem({ step, index, isCurrent, canSkip, onSk
           <span className="text-sm font-medium text-gray-800">
             {ACTION_LABELS[step.action_type] || step.action_type}
           </span>
+          {executor && (
+            <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${executor.cls}`}>
+              {executor.icon} {executor.label}
+            </span>
+          )}
           {step.channel && <ChannelBadge channel={step.channel} />}
           {isCurrent && (
             <span className="text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium">
               現在のステップ
             </span>
           )}
-          {canSkip && step.status === 'pending' && (
+          {canSkip && step.status === 'pending' && step.executor_type !== 'customer' && (
             <button
               onClick={onSkip}
               className="ml-auto text-xs text-gray-400 hover:text-amber-600 flex items-center gap-1 px-2 py-0.5 rounded hover:bg-amber-50 transition-colors"

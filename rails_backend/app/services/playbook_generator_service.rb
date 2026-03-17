@@ -3,7 +3,10 @@ class PlaybookGeneratorService
     send_slack_message schedule_meeting send_email
     update_crm create_followup_task send_proposal
     request_demo share_case_study follow_up_call
+    wait_customer_response
   ].freeze
+
+  EXECUTOR_TYPES = %w[ai human customer].freeze
 
   def initialize
     @client = Anthropic::Client.new(api_key: ENV["ANTHROPIC_API_KEY"])
@@ -36,7 +39,8 @@ class PlaybookGeneratorService
           {
             "step": 1,
             "action_type": "アクション種別 (#{ACTION_TYPES.join(', ')} のいずれか)",
-            "channel": "使用チャンネル (slack/teams/zoom/google_meet/email/salesforce/hubspot)",
+            "executor_type": "実行者種別 (ai / human / customer のいずれか)",
+            "channel": "使用チャンネル (slack/teams/zoom/google_meet/email/salesforce/hubspot/chatbot)",
             "target": "対象者・チャンネル名",
             "template": "実行すべき内容の詳細",
             "due_in_hours": 24,
@@ -45,6 +49,12 @@ class PlaybookGeneratorService
         ]
       }
 
+      ## executor_type の使い分け
+      - "ai"       : AIエージェントが自律実行するステップ（メール送信・Slack送信・CRM更新など）
+      - "human"    : 営業担当者が実行するステップ（判断が必要な会議・提案内容の最終確認など）
+      - "customer" : 顧客のアクションを待つステップ（チャットbot経由で顧客が返信・承認したとき自動完了）
+
+      顧客への連絡はAIが実行 (executor_type: "ai") し、顧客の返答を待つ場合は wait_customer_response (executor_type: "customer") を使うこと。
       ステップは3〜7個程度。必ずJSON形式のみで返してください。
     PROMPT
 
