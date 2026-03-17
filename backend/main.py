@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routers import calls, deals, analytics, bots, conversations, leads, visitors
 
-app = FastAPI(title="Breakout API", version="2.0.0")
+app = FastAPI(title="DealForward API", version="2.0.0")
 
 # Allow Cloudflare Pages URL + local dev.
 # Set ALLOWED_ORIGIN env var in production (e.g. https://dealforward.pages.dev).

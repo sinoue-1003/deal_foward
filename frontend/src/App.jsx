@@ -26,7 +26,7 @@ export default function App() {
         <aside className="w-56 bg-gray-900 flex flex-col flex-shrink-0">
           <div className="flex items-center gap-2 px-5 py-5 border-b border-gray-700">
             <Zap className="text-brand-500" size={22} />
-            <span className="text-white font-bold text-lg tracking-tight">Breakout</span>
+            <span className="text-white font-bold text-lg tracking-tight">DealForward</span>
           </div>
           <nav className="flex-1 py-4 px-3 space-y-1">
             {navItems.map(({ to, icon: Icon, label }) => (

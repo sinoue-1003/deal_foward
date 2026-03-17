@@ -1,4 +1,4 @@
-"""Conversations router — maps to the calls table with Breakout AI terminology."""
+"""Conversations router — maps to the calls table with DealForward terminology."""
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 

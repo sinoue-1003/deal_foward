@@ -1,4 +1,4 @@
-"""Leads router — maps to the deals table with Breakout AI terminology."""
+"""Leads router — maps to the deals table with DealForward terminology."""
 from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timezone
 

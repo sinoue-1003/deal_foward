@@ -37,7 +37,7 @@ function parseTranscript(transcript) {
   let currentText = []
 
   for (const line of lines) {
-    const botMatch = line.match(/^(AI|Bot|Breakout|システム|担当AI)[:：]\s*(.+)/)
+    const botMatch = line.match(/^(AI|Bot|DealForward|システム|担当AI)[:：]\s*(.+)/)
     const userMatch = line.match(/^(訪問者|ユーザー|顧客|見込み客|お客様)[:：]\s*(.+)/)
     if (botMatch) {
       if (currentRole && currentText.length) messages.push({ role: currentRole, text: currentText.join(' ') })
