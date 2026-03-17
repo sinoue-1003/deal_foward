@@ -7,7 +7,7 @@ SCRIPT_DIR="$(dirname "$0")"
 
 # Rails Backend
 echo "[1/2] Rails バックエンドを起動中..."
-cd "$SCRIPT_DIR/rails_backend"
+cd "$SCRIPT_DIR/backend"
 
 export PATH="/opt/rbenv/versions/3.3.6/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
 

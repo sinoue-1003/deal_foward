@@ -1,7 +1,7 @@
 services:
   backend:
     build:
-      context: ./rails_backend
+      context: ./backend
       dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
@@ -13,7 +13,7 @@ services:
       - AGENT_WEBHOOK_URL=${AGENT_WEBHOOK_URL:-}
       - RAILS_ENV=development
     volumes:
-      - ./rails_backend:/app
+      - ./backend:/app
       - bundle_cache:/usr/local/bundle
     command: bundle exec rails server -p 8000 -b 0.0.0.0
     healthcheck:

@@ -37,7 +37,7 @@
 deal_foward/
 ├── CLAUDE.md
 ├── start.sh                      # 一発起動スクリプト
-├── rails_backend/                # Ruby on Rails 8.1 API
+├── backend/                # Ruby on Rails 8.1 API
 │   ├── Gemfile
 │   ├── .env.example
 │   ├── config/
@@ -112,7 +112,7 @@ PATCH /api/agent/playbook/:id/step/:n     # ステップ完了報告
 
 ```bash
 # Rails バックエンド
-cd rails_backend
+cd backend
 export PATH="/opt/rbenv/versions/3.3.6/bin:$PATH"
 bundle exec rails db:migrate
 bundle exec rails server -p 8000
@@ -123,7 +123,7 @@ cd frontend && npm run dev
 
 ### 環境変数
 
-`rails_backend/.env.example` をコピーして `rails_backend/.env` を作成:
+`backend/.env.example` をコピーして `backend/.env` を作成:
 ```
 DATABASE_URL=postgresql://...
 ANTHROPIC_API_KEY=sk-ant-...
