@@ -50,3 +50,47 @@ jobs:
       - name: Lint code for consistent style
         run: bin/rubocop -f github
 
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: deal_foward_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/deal_foward_test
+      AGENT_API_KEY: test-agent-key
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Set up test database
+        run: bin/rails db:schema:load
+
+      - name: Run RSpec tests
+        run: bundle exec rspec --format progress --format documentation --out tmp/rspec_results.txt
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rspec-results
+          path: tmp/rspec_results.txt
