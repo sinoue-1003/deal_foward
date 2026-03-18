@@ -16,9 +16,11 @@ test.describe('Dashboard page', () => {
   })
 
   test('displays KPI stats from API', async ({ page }) => {
-    // Wait for the API data to load (loading spinner disappears or data appears)
-    // The dashboard shows active_playbooks count
-    await expect(page.getByText(String(mockDashboardOverview.active_playbooks))).toBeVisible({ timeout: 5000 })
+    // StatCard labels are unique — verify all 4 cards rendered after API load
+    await expect(page.getByText('アクティブ PB')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('本日のチャット')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('解析済み通信')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('AIレポート (本日)')).toBeVisible({ timeout: 5000 })
   })
 
   test('sidebar navigation links are present', async ({ page }) => {

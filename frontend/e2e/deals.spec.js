@@ -21,8 +21,10 @@ test.describe('Deals page', () => {
   })
 
   test('shows deal stages', async ({ page }) => {
-    // The stage badges should be visible
-    await expect(page.getByText(/prospect/i)).toBeVisible({ timeout: 5000 })
+    // StageBadge renders Japanese labels: prospect → "見込み客"
+    // Scope to the table body to avoid matching the hidden <option> in the filter <select>
+    const tableBody = page.locator('tbody')
+    await expect(tableBody.getByText('見込み客')).toBeVisible({ timeout: 5000 })
   })
 
   test('has a link back to dashboard', async ({ page }) => {

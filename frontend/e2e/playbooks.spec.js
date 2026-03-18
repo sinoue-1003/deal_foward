@@ -17,7 +17,10 @@ test.describe('Playbooks page', () => {
   })
 
   test('shows playbook status badges', async ({ page }) => {
-    await expect(page.getByText(/active/i)).toBeVisible({ timeout: 5000 })
+    // STATUS_CONFIG renders Japanese labels: active → "アクティブ"
+    // Scope inside playbook card links to distinguish from the filter button
+    const playbookCard = page.locator('a[href^="/playbooks/"]').first()
+    await expect(playbookCard.getByText('アクティブ')).toBeVisible({ timeout: 5000 })
   })
 
   test('navigates back to dashboard', async ({ page }) => {
