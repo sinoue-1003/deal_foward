@@ -1,4 +1,5 @@
 class Deal < ApplicationRecord
+  belongs_to :tenant
   belongs_to :company, optional: true
   has_many :deal_contacts, dependent: :destroy
   has_many :contacts, through: :deal_contacts

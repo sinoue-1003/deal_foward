@@ -1,4 +1,5 @@
 class ChatSession < ApplicationRecord
+  belongs_to :tenant
   belongs_to :company, optional: true
   belongs_to :contact, optional: true
 

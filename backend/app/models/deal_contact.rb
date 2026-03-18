@@ -1,4 +1,5 @@
 class DealContact < ApplicationRecord
+  belongs_to :tenant
   belongs_to :deal
   belongs_to :contact
 

@@ -1,4 +1,5 @@
 class PlaybookStep < ApplicationRecord
+  belongs_to :tenant
   belongs_to :playbook
   has_many :playbook_executions, dependent: :destroy
 

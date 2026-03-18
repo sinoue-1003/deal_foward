@@ -1,4 +1,5 @@
 class Playbook < ApplicationRecord
+  belongs_to :tenant
   belongs_to :company, optional: true
   belongs_to :contact, optional: true
   has_many :playbook_steps, -> { order(:step_index) }, dependent: :destroy

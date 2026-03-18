@@ -1,4 +1,5 @@
 class PlaybookExecution < ApplicationRecord
+  belongs_to :tenant
   belongs_to :playbook
   belongs_to :playbook_step
 
