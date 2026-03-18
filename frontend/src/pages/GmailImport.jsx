@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Building2, User, CheckSquare, Square, ChevronDown, ChevronRight, ArrowLeft, Download } from 'lucide-react'
+import {
+  Mail, Building2, User, CheckSquare, Square,
+  ChevronDown, ChevronRight, ArrowLeft, Download,
+  Sparkles, MessageSquare
+} from 'lucide-react'
 import { api } from '../hooks/useApi'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -8,26 +12,27 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').
 
 export default function GmailImport() {
   const navigate = useNavigate()
-  const [loading, setLoading]         = useState(true)
-  const [importing, setImporting]     = useState(false)
-  const [connected, setConnected]     = useState(false)
-  const [domains, setDomains]         = useState([])
-  // selectedDomains: Set of domain strings
-  const [selectedDomains, setSelectedDomains]     = useState(new Set())
-  // expandedDomains: Set of domain strings
-  const [expandedDomains, setExpandedDomains]     = useState(new Set())
-  // selectedContacts: { [domain]: Set<email> }
-  const [selectedContacts, setSelectedContacts]   = useState({})
-  const [result, setResult]           = useState(null)  // import result
-  const [toast, setToast]             = useState(null)
+  const [loading, setLoading]       = useState(true)
+  const [importing, setImporting]   = useState(false)
+  const [connected, setConnected]   = useState(false)
+  const [domains, setDomains]       = useState([])
 
-  // Show toast and auto-dismiss
+  const [selectedDomains, setSelectedDomains]   = useState(new Set())
+  const [expandedDomains, setExpandedDomains]   = useState(new Set())
+  const [selectedContacts, setSelectedContacts] = useState({})
+
+  // Import options
+  const [includeEmails, setIncludeEmails] = useState(true)
+  const [analyzeEmails, setAnalyzeEmails] = useState(false)
+
+  const [result, setResult] = useState(null)
+  const [toast, setToast]   = useState(null)
+
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 4000)
   }, [])
 
-  // Load preview on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('connected') === 'true') {
@@ -38,17 +43,16 @@ export default function GmailImport() {
     api.get('/api/gmail/preview')
       .then((data) => {
         setConnected(data.connected)
-        setDomains(data.domains || [])
-        // Default: select all domains and all contacts
-        const allDomains = new Set((data.domains || []).map((d) => d.domain))
-        const allContacts = {}
-        ;(data.domains || []).forEach((d) => {
+        const domainList = data.domains || []
+        setDomains(domainList)
+        const allDomains   = new Set(domainList.map((d) => d.domain))
+        const allContacts  = {}
+        domainList.forEach((d) => {
           allContacts[d.domain] = new Set(d.contacts.map((c) => c.email))
         })
         setSelectedDomains(allDomains)
         setSelectedContacts(allContacts)
-        // Expand first 3 domains by default
-        setExpandedDomains(new Set((data.domains || []).slice(0, 3).map((d) => d.domain)))
+        setExpandedDomains(new Set(domainList.slice(0, 3).map((d) => d.domain)))
       })
       .catch(() => showToast('プレビューの取得に失敗しました', 'error'))
       .finally(() => setLoading(false))
@@ -61,12 +65,11 @@ export default function GmailImport() {
         next.delete(domain)
       } else {
         next.add(domain)
-        // Also select all contacts when domain is checked
-        const domainData = domains.find((d) => d.domain === domain)
-        if (domainData) {
+        const d = domains.find((x) => x.domain === domain)
+        if (d) {
           setSelectedContacts((cp) => ({
             ...cp,
-            [domain]: new Set(domainData.contacts.map((c) => c.email))
+            [domain]: new Set(d.contacts.map((c) => c.email))
           }))
         }
       }
@@ -77,11 +80,7 @@ export default function GmailImport() {
   function toggleContact(domain, email) {
     setSelectedContacts((prev) => {
       const set = new Set(prev[domain] || [])
-      if (set.has(email)) {
-        set.delete(email)
-      } else {
-        set.add(email)
-      }
+      set.has(email) ? set.delete(email) : set.add(email)
       return { ...prev, [domain]: set }
     })
   }
@@ -96,13 +95,10 @@ export default function GmailImport() {
 
   function toggleAll(checked) {
     if (checked) {
-      const allDomains = new Set(domains.map((d) => d.domain))
-      const allContacts = {}
-      domains.forEach((d) => {
-        allContacts[d.domain] = new Set(d.contacts.map((c) => c.email))
-      })
-      setSelectedDomains(allDomains)
-      setSelectedContacts(allContacts)
+      setSelectedDomains(new Set(domains.map((d) => d.domain)))
+      const all = {}
+      domains.forEach((d) => { all[d.domain] = new Set(d.contacts.map((c) => c.email)) })
+      setSelectedContacts(all)
     } else {
       setSelectedDomains(new Set())
       setSelectedContacts({})
@@ -128,7 +124,11 @@ export default function GmailImport() {
 
     setImporting(true)
     try {
-      const data = await api.post('/api/gmail/import', { domains: selected })
+      const data = await api.post('/api/gmail/import', {
+        domains:        selected,
+        include_emails: includeEmails,
+        analyze:        analyzeEmails
+      })
       setResult(data)
     } catch {
       showToast('インポートに失敗しました', 'error')
@@ -137,7 +137,11 @@ export default function GmailImport() {
     }
   }
 
-  const totalSelected = domains
+  const totalEmailCount = domains
+    .filter((d) => selectedDomains.has(d.domain))
+    .reduce((s, d) => s + (d.email_count || 0), 0)
+
+  const totalContacts = domains
     .filter((d) => selectedDomains.has(d.domain))
     .reduce((sum, d) => sum + (selectedContacts[d.domain]?.size || 0), 0)
 
@@ -145,28 +149,36 @@ export default function GmailImport() {
 
   if (loading) return <LoadingSpinner />
 
-  // ── Import result screen ───────────────────────────────────────────────────
+  // ── Import result screen ────────────────────────────────────────────────────
   if (result) {
     return (
-      <div className="p-6 max-w-lg mx-auto space-y-6 mt-12">
-        <div className="card text-center space-y-4">
-          <div className="text-4xl">✅</div>
+      <div className="p-6 max-w-lg mx-auto space-y-6 mt-10">
+        <div className="card text-center space-y-5">
+          <div className="text-5xl">✅</div>
           <h2 className="text-xl font-bold text-gray-900">インポート完了</h2>
-          <div className="flex justify-center gap-8 pt-2">
+          <div className="flex justify-center gap-6 flex-wrap">
             <Stat label="新規会社" value={result.companies_created} />
             <Stat label="新規コンタクト" value={result.contacts_created} />
-            <Stat label="スキップ" value={result.skipped} />
+            {result.emails_imported > 0 && (
+              <Stat label="メール履歴" value={result.emails_imported} accent />
+            )}
+            <Stat label="スキップ" value={result.contact_skipped} muted />
           </div>
-          <div className="flex gap-3 pt-4 justify-center">
-            <button
-              onClick={() => navigate('/deals')}
-              className="btn-primary px-6"
-            >
+          {result.emails_imported > 0 && (
+            <p className="text-xs text-gray-500">
+              メールは「通信・連携」ページで確認できます
+            </p>
+          )}
+          <div className="flex gap-3 pt-2 justify-center flex-wrap">
+            <button onClick={() => navigate('/communications')} className="btn-primary px-5">
+              通信履歴を確認
+            </button>
+            <button onClick={() => navigate('/deals')} className="btn-secondary px-5">
               商談を確認
             </button>
             <button
-              onClick={() => { setResult(null); setSelectedDomains(new Set()); setSelectedContacts({}) }}
-              className="btn-secondary px-6"
+              onClick={() => { setResult(null) }}
+              className="text-sm text-gray-400 hover:text-gray-600 px-3"
             >
               続けてインポート
             </button>
@@ -197,7 +209,7 @@ export default function GmailImport() {
           <h1 className="text-2xl font-bold text-gray-900">Gmailからインポート</h1>
           <p className="text-sm text-gray-500">
             {connected
-              ? 'Gmailのメール履歴から会社とコンタクトを取り込みます'
+              ? 'Gmailのメール履歴から会社・コンタクト・やり取りを取り込みます'
               : 'デモデータを表示中 — Gmailを接続するとメール履歴から取り込めます'}
           </p>
         </div>
@@ -211,8 +223,56 @@ export default function GmailImport() {
         )}
       </div>
 
-      {/* Stats bar */}
-      <div className="flex items-center gap-6 bg-white border border-gray-200 rounded-xl px-5 py-3 text-sm">
+      {/* Import options */}
+      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 space-y-3">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">取り込みオプション</p>
+        <div className="flex flex-wrap gap-6">
+          {/* Include emails toggle */}
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <button
+              className="flex-shrink-0"
+              onClick={() => setIncludeEmails((v) => !v)}
+            >
+              {includeEmails
+                ? <CheckSquare size={18} className="text-brand-600" />
+                : <Square size={18} className="text-gray-300" />}
+            </button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <MessageSquare size={14} className="text-brand-500" />
+                <span className="text-sm font-medium text-gray-800">メールのやり取りも取り込む</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                各ドメインとのメール履歴をコミュニケーション記録として保存（最大{20}件/社）
+              </p>
+            </div>
+          </label>
+
+          {/* AI analysis toggle (only when include_emails is on) */}
+          <label className={`flex items-center gap-3 cursor-pointer select-none transition-opacity ${includeEmails ? '' : 'opacity-40 pointer-events-none'}`}>
+            <button
+              className="flex-shrink-0"
+              onClick={() => includeEmails && setAnalyzeEmails((v) => !v)}
+            >
+              {analyzeEmails
+                ? <CheckSquare size={18} className="text-purple-600" />
+                : <Square size={18} className="text-gray-300" />}
+            </button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-purple-500" />
+                <span className="text-sm font-medium text-gray-800">AIで自動分析する</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                感情・キーワード・アクション項目をAIが自動抽出（少し時間がかかります）
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Stats & action bar */}
+      <div className="flex items-center gap-5 bg-white border border-gray-200 rounded-xl px-5 py-3 text-sm flex-wrap">
         <span className="text-gray-500">
           <span className="font-semibold text-gray-900">{domains.length}</span> ドメイン
         </span>
@@ -221,23 +281,30 @@ export default function GmailImport() {
             {domains.reduce((s, d) => s + d.contacts.length, 0)}
           </span> コンタクト
         </span>
+        {includeEmails && (
+          <span className="text-gray-500">
+            <span className="font-semibold text-brand-600">{totalEmailCount}</span> 件のメール対象
+          </span>
+        )}
         <span className="text-gray-500 flex-1">
           <span className="font-semibold text-brand-600">{selectedDomains.size}</span> 社 /{' '}
-          <span className="font-semibold text-brand-600">{totalSelected}</span> 件選択中
+          <span className="font-semibold text-brand-600">{totalContacts}</span> 件選択中
         </span>
         <label className="flex items-center gap-2 cursor-pointer select-none">
-          {allChecked
-            ? <CheckSquare size={16} className="text-brand-600" onClick={() => toggleAll(false)} />
-            : <Square size={16} className="text-gray-400" onClick={() => toggleAll(true)} />}
+          <button onClick={() => toggleAll(!allChecked)}>
+            {allChecked
+              ? <CheckSquare size={16} className="text-brand-600" />
+              : <Square size={16} className="text-gray-400" />}
+          </button>
           <span className="text-gray-600">すべて選択</span>
         </label>
         <button
           onClick={handleImport}
-          disabled={importing || totalSelected === 0}
+          disabled={importing || totalContacts === 0}
           className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors disabled:opacity-40"
         >
           <Download size={14} />
-          {importing ? 'インポート中...' : `${totalSelected}件をインポート`}
+          {importing ? 'インポート中...' : `インポート実行`}
         </button>
       </div>
 
@@ -249,48 +316,42 @@ export default function GmailImport() {
       ) : (
         <div className="space-y-2">
           {domains.map((d) => {
-            const isDomainSelected  = selectedDomains.has(d.domain)
-            const isExpanded        = expandedDomains.has(d.domain)
-            const contactSet        = selectedContacts[d.domain] || new Set()
-            const selectedCount     = d.contacts.filter((c) => contactSet.has(c.email)).length
+            const isDomainSelected = selectedDomains.has(d.domain)
+            const isExpanded       = expandedDomains.has(d.domain)
+            const contactSet       = selectedContacts[d.domain] || new Set()
+            const selectedCount    = d.contacts.filter((c) => contactSet.has(c.email)).length
 
             return (
               <div
                 key={d.domain}
                 className={`card transition-colors ${isDomainSelected ? 'border-brand-200 bg-brand-50/30' : ''}`}
               >
-                {/* Domain header */}
+                {/* Domain header row */}
                 <div className="flex items-center gap-3">
-                  <button
-                    className="flex-shrink-0"
-                    onClick={() => toggleDomain(d.domain)}
-                    aria-label="select domain"
-                  >
+                  <button className="flex-shrink-0" onClick={() => toggleDomain(d.domain)}>
                     {isDomainSelected
                       ? <CheckSquare size={18} className="text-brand-600" />
                       : <Square size={18} className="text-gray-300" />}
                   </button>
-
                   <Building2 size={16} className={isDomainSelected ? 'text-brand-500' : 'text-gray-400'} />
-
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-gray-900">{d.company_name}</span>
                       <span className="text-xs text-gray-400">{d.domain}</span>
                     </div>
                   </div>
-
+                  {/* Email count badge */}
+                  {includeEmails && d.email_count > 0 && (
+                    <span className="flex items-center gap-1 text-xs text-brand-600 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded-full flex-shrink-0">
+                      <Mail size={10} />
+                      {d.email_count}件
+                    </span>
+                  )}
                   <span className="text-xs text-gray-500 flex-shrink-0">
-                    {selectedCount}/{d.contacts.length} 件
+                    {selectedCount}/{d.contacts.length}名
                   </span>
-
-                  <button
-                    onClick={() => toggleExpand(d.domain)}
-                    className="text-gray-400 hover:text-gray-600 flex-shrink-0"
-                  >
-                    {isExpanded
-                      ? <ChevronDown size={16} />
-                      : <ChevronRight size={16} />}
+                  <button onClick={() => toggleExpand(d.domain)} className="text-gray-400 hover:text-gray-600 flex-shrink-0">
+                    {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                   </button>
                 </div>
 
@@ -300,7 +361,7 @@ export default function GmailImport() {
                     {d.contacts.map((c) => {
                       const isSelected = contactSet.has(c.email)
                       return (
-                        <label key={c.email} className="flex items-center gap-2 cursor-pointer select-none group">
+                        <div key={c.email} className="flex items-center gap-2">
                           <button onClick={() => toggleContact(d.domain, c.email)}>
                             {isSelected
                               ? <CheckSquare size={15} className="text-brand-500" />
@@ -309,7 +370,7 @@ export default function GmailImport() {
                           <User size={13} className="text-gray-400 flex-shrink-0" />
                           <span className="text-sm text-gray-800">{c.name || '名前なし'}</span>
                           <span className="text-xs text-gray-400">{c.email}</span>
-                        </label>
+                        </div>
                       )
                     })}
                   </div>
@@ -323,10 +384,12 @@ export default function GmailImport() {
   )
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, accent, muted }) {
   return (
     <div className="text-center">
-      <div className="text-3xl font-bold text-brand-600">{value}</div>
+      <div className={`text-3xl font-bold ${accent ? 'text-purple-600' : muted ? 'text-gray-400' : 'text-brand-600'}`}>
+        {value}
+      </div>
       <div className="text-xs text-gray-500 mt-1">{label}</div>
     </div>
   )
