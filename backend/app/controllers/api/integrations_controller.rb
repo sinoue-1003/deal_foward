@@ -1,6 +1,6 @@
 module Api
   class IntegrationsController < BaseController
-    INTEGRATION_TYPES = %w[slack teams zoom google_meet salesforce hubspot].freeze
+    INTEGRATION_TYPES = %w[slack teams zoom google_meet salesforce hubspot gmail].freeze
 
     # GET /api/integrations
     def index

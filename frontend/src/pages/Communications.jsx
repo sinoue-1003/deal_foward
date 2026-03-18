@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApi } from '../hooks/useApi'
 import { api } from '../hooks/useApi'
 import LoadingSpinner from '../components/LoadingSpinner'
 import ChannelBadge from '../components/ChannelBadge'
+import { Mail } from 'lucide-react'
 
 const CHANNELS = ['all', 'slack', 'teams', 'zoom', 'google_meet', 'salesforce', 'hubspot']
 
@@ -13,6 +15,7 @@ const INTEGRATION_INFO = {
   google_meet: { name: 'Google Meet',      desc: 'ミーティング録画解析' },
   salesforce:  { name: 'Salesforce',       desc: 'CRM データ同期' },
   hubspot:     { name: 'HubSpot',          desc: 'マーケティング・CRM連携' },
+  gmail:       { name: 'Gmail',            desc: 'メール履歴からContacts・会社をインポート' },
 }
 
 const SENTIMENT_CONFIG = {
@@ -26,6 +29,7 @@ const SENTIMENT_CONFIG = {
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export default function Communications() {
+  const navigate = useNavigate()
   const [channel, setChannel] = useState('all')
   const { data: comms, loading: l1 } = useApi(
     channel === 'all' ? '/api/communications' : `/api/communications?channel=${channel}`
@@ -90,6 +94,21 @@ export default function Communications() {
           {toast.message}
         </div>
       )}
+
+      {/* Gmail import CTA */}
+      <div className="flex items-center gap-4 bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+        <Mail size={24} className="text-red-500 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-gray-900">GmailからContacts・会社をインポート</p>
+          <p className="text-xs text-gray-500 mt-0.5">メール履歴のドメインから会社とコンタクトを自動登録できます</p>
+        </div>
+        <button
+          onClick={() => navigate('/gmail-import')}
+          className="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+        >
+          インポートを開始
+        </button>
+      </div>
 
       {/* Integration management */}
       <div className="card">

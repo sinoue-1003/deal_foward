@@ -48,6 +48,15 @@ class OauthService
       client_secret_env: "HUBSPOT_CLIENT_SECRET",
       scopes:            "contacts crm.objects.deals.read",
       token_method:      :post_form
+    },
+    "gmail" => {
+      authorize_url:          "https://accounts.google.com/o/oauth2/v2/auth",
+      token_url:              "https://oauth2.googleapis.com/token",
+      client_id_env:          "GOOGLE_CLIENT_ID",
+      client_secret_env:      "GOOGLE_CLIENT_SECRET",
+      scopes:                 "https://www.googleapis.com/auth/gmail.readonly",
+      token_method:           :post_form,
+      extra_authorize_params: { access_type: "offline", prompt: "consent" }
     }
   }.freeze
 
