@@ -54,7 +54,7 @@ export default function PlaybookStepItem({ step, index, isCurrent, canSkip, onSk
       <div className="flex-shrink-0 mt-0.5">{icon}</div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-400 font-mono">Step {step.step || index + 1}</span>
+          <span className="text-xs text-gray-400 font-mono">Step {step.step_index || index + 1}</span>
           <span className="text-sm font-medium text-gray-800">
             {ACTION_LABELS[step.action_type] || step.action_type}
           </span>

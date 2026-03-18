@@ -22,10 +22,12 @@ export default function PlaybookDetail() {
   if (!pb) return <div className="p-6 text-gray-500">プレイブックが見つかりません</div>
 
   const st = STATUS_CONFIG[pb.status] || STATUS_CONFIG.active
-  const total = (pb.steps || []).length
-  const done = (pb.steps || []).filter((s) => s.status === 'completed').length
+  const steps = pb.playbook_steps || []
+  const total = steps.length
+  const done = steps.filter((s) => s.status === 'completed').length
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
   const summary = pb.status_summary || {}
+  const firstPendingIndex = steps.findIndex((s) => s.status === 'pending')
 
   async function executeNextStep() {
     setExecuting(true)
@@ -148,14 +150,14 @@ export default function PlaybookDetail() {
           {/* Steps */}
           <div className="space-y-2">
             <h2 className="text-sm font-semibold text-gray-700">実行ステップ</h2>
-            {(pb.steps || []).map((step, i) => (
+            {steps.map((step, i) => (
               <PlaybookStepItem
-                key={i}
+                key={step.id || i}
                 step={step}
                 index={i}
-                isCurrent={i === pb.current_step && pb.status === 'active'}
+                isCurrent={i === firstPendingIndex && pb.status === 'active'}
                 canSkip={pb.status === 'active' && !executing}
-                onSkip={() => skipStep(i)}
+                onSkip={() => skipStep(step.step_index)}
                 playbookCreatedAt={pb.created_at}
               />
             ))}
@@ -195,9 +197,10 @@ export default function PlaybookDetail() {
                           ? <Bot size={10} className="text-purple-500" />
                           : <User size={10} className="text-gray-400" />
                         }
-                        Step {ex.step_index + 1}: {ex.status}
+                        {ex.status}
                       </p>
-                      {ex.result && <p className="text-gray-500 mt-0.5">{ex.result}</p>}
+                      {ex.action_content && <p className="text-gray-600 mt-0.5">実行内容: {ex.action_content}</p>}
+                      {ex.result && <p className="text-gray-500 mt-0.5">結果: {ex.result}</p>}
                       <p className="text-gray-400 mt-0.5">
                         {isAI ? 'AIエージェント' : '人間'} · {ex.executed_at ? new Date(ex.executed_at).toLocaleString('ja-JP') : ''}
                       </p>

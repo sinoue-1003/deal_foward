@@ -54,34 +54,42 @@ module Api
 
       # GET /api/agent/playbook/:id
       def playbook
-        pb = Playbook.find(params[:id])
-        render json: pb.as_json.merge(status_summary: pb.status_summary)
+        pb = Playbook.includes(:playbook_steps).find(params[:id])
+        render json: pb.as_json.merge(
+          status_summary: pb.status_summary,
+          playbook_steps: pb.playbook_steps
+        )
       end
 
       # PATCH /api/agent/playbook/:id/step/:step_index
+      # params: status (completed/failed/skipped), action_content, result
       def update_step
         pb = Playbook.find(params[:id])
-        idx = params[:step_index].to_i
-        steps = pb.steps.dup
-        return render json: { error: "Step not found" }, status: :not_found if steps[idx].nil?
+        step = pb.playbook_steps.find_by(step_index: params[:step_index].to_i)
+        return render json: { error: "Step not found" }, status: :not_found unless step
 
-        steps[idx] = steps[idx].merge(
-          "status" => params[:status],
-          "result" => params[:result],
-          "completed_at" => Time.current.iso8601
+        step.update!(
+          status: params[:status],
+          executed_by: "ai_agent",
+          completed_at: Time.current
         )
-
-        new_current = steps.index { |s| s["status"] == "pending" } || pb.current_step
-        pb.update!(steps: steps, current_step: new_current)
-        pb.maybe_auto_complete!
 
         PlaybookExecution.create!(
-          playbook: pb, step_index: idx,
-          status: params[:status], result: params[:result],
-          executed_by: "ai_agent", executed_at: Time.current
+          playbook: pb,
+          playbook_step: step,
+          status: params[:status],
+          action_content: params[:action_content],
+          result: params[:result],
+          executed_by: "ai_agent",
+          executed_at: Time.current
         )
 
-        render json: pb.as_json.merge(status_summary: pb.status_summary)
+        pb.maybe_auto_complete!
+
+        render json: pb.as_json.merge(
+          status_summary: pb.status_summary,
+          playbook_steps: pb.playbook_steps
+        )
       end
 
       private
@@ -98,16 +106,19 @@ module Api
         return { error: "company_id required" } unless company
 
         comms = Communication.where(company: company).order(recorded_at: :desc).limit(5)
-        playbook = Playbook.where(company: company, status: "active").last
+        playbook = Playbook.includes(:playbook_steps).where(company: company, status: "active").last
         deal = Deal.where(company: company).order(created_at: :desc).first
 
         {
           company: company,
           contacts: company.contacts,
           recent_communications: comms,
-          active_playbook: playbook ? playbook.as_json.merge(status_summary: playbook.status_summary) : nil,
+          active_playbook: playbook ? playbook.as_json.merge(
+            status_summary: playbook.status_summary,
+            playbook_steps: playbook.playbook_steps
+          ) : nil,
           deal: deal,
-          recommended_next_action: playbook&.next_action&.dig("action_type")
+          recommended_next_action: playbook&.next_action&.action_type
         }
       end
     end

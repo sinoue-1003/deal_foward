@@ -1,7 +1,7 @@
 class PlaybookExecution < ApplicationRecord
   belongs_to :playbook
+  belongs_to :playbook_step
 
-  STATUSES = %w[pending in_progress completed failed skipped].freeze
-  validates :step_index, presence: true
+  STATUSES = %w[completed failed skipped].freeze
   validates :status, inclusion: { in: STATUSES }
 end

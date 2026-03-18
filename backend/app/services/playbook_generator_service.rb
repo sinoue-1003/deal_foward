@@ -43,8 +43,7 @@ class PlaybookGeneratorService
             "channel": "使用チャンネル (slack/teams/zoom/google_meet/email/salesforce/hubspot/chatbot)",
             "target": "対象者・チャンネル名",
             "template": "実行すべき内容の詳細",
-            "due_in_hours": 24,
-            "status": "pending"
+            "due_in_hours": 24
           }
         ]
       }
@@ -61,23 +60,37 @@ class PlaybookGeneratorService
     response = @client.messages(
       model: "claude-sonnet-4-6",
       max_tokens: 2048,
-      messages: [{ role: "user", content: prompt }]
+      messages: [ { role: "user", content: prompt } ]
     )
 
     text = response.content.first.text
     json_str = text.match(/\{.*\}/m)&.to_s || text
     data = JSON.parse(json_str)
 
-    Playbook.create!(
+    pb = Playbook.create!(
       company: company,
       contact: contact,
       title: data["title"] || "新規プレイブック",
       objective: data["objective"],
       situation_summary: data["situation_summary"],
-      steps: data["steps"] || [],
       status: "active",
       created_by: "ai_agent"
     )
+
+    (data["steps"] || []).each_with_index do |step_data, i|
+      pb.playbook_steps.create!(
+        step_index: step_data["step"] || i + 1,
+        action_type: step_data["action_type"],
+        executor_type: step_data["executor_type"] || "ai",
+        channel: step_data["channel"],
+        target: step_data["target"],
+        template: step_data["template"],
+        due_in_hours: step_data["due_in_hours"],
+        status: "pending"
+      )
+    end
+
+    pb
   rescue StandardError => e
     Rails.logger.error("PlaybookGeneratorService error: #{e.message}")
     nil

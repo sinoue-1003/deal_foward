@@ -2,7 +2,7 @@ module Api
   class PlaybooksController < BaseController
     # GET /api/playbooks
     def index
-      playbooks = Playbook.includes(:company, :contact)
+      playbooks = Playbook.includes(:company, :contact, :playbook_steps)
         .order(created_at: :desc)
 
       playbooks = playbooks.where(status: params[:status]) if params[:status].present?
@@ -12,15 +12,15 @@ module Api
           company_name: pb.company&.name,
           contact_name: pb.contact&.name,
           status_summary: pb.status_summary,
-          total_steps: pb.steps.size,
-          completed_steps: pb.steps.count { |s| s["status"] == "completed" }
+          total_steps: pb.playbook_steps.size,
+          completed_steps: pb.playbook_steps.count { |s| s.status == "completed" }
         )
       }
     end
 
     # GET /api/playbooks/:id
     def show
-      pb = Playbook.find(params[:id])
+      pb = Playbook.includes(:company, :contact, playbook_steps: :playbook_executions).find(params[:id])
       executions = pb.playbook_executions.order(executed_at: :desc)
 
       render json: pb.as_json.merge(
@@ -28,16 +28,17 @@ module Api
         contact: pb.contact,
         status_summary: pb.status_summary,
         next_action: pb.next_action,
+        playbook_steps: pb.playbook_steps.as_json(include: { playbook_executions: { only: %i[id status action_content result executed_by executed_at] } }),
         executions: executions,
-        total_steps: pb.steps.size,
-        completed_steps: pb.steps.count { |s| s["status"] == "completed" }
+        total_steps: pb.playbook_steps.size,
+        completed_steps: pb.playbook_steps.count { |s| s.status == "completed" }
       )
     end
 
     # GET /api/playbooks/:id/status
-    # Shared AI+human status view: current situation + next actions
+    # Shared AI+human status view
     def status
-      pb = Playbook.find(params[:id])
+      pb = Playbook.includes(:playbook_steps).find(params[:id])
       render json: {
         id: pb.id,
         title: pb.title,
@@ -45,18 +46,31 @@ module Api
         situation_summary: pb.situation_summary,
         objective: pb.objective,
         status_summary: pb.status_summary,
-        steps: pb.steps,
-        current_step: pb.current_step,
+        playbook_steps: pb.playbook_steps,
         next_action: pb.next_action,
-        company: pb.company&.as_json(only: [:id, :name]),
-        contact: pb.contact&.as_json(only: [:id, :name, :role])
+        company: pb.company&.as_json(only: %i[id name]),
+        contact: pb.contact&.as_json(only: %i[id name position])
       }
     end
 
     # POST /api/playbooks
     def create
       pb = Playbook.create!(playbook_params)
-      render json: pb, status: :created
+
+      (params[:steps] || []).each_with_index do |step_data, i|
+        pb.playbook_steps.create!(
+          step_index: step_data[:step] || i + 1,
+          action_type: step_data[:action_type],
+          executor_type: step_data[:executor_type] || "ai",
+          channel: step_data[:channel],
+          target: step_data[:target],
+          template: step_data[:template],
+          due_in_hours: step_data[:due_in_hours],
+          status: "pending"
+        )
+      end
+
+      render json: pb.as_json.merge(playbook_steps: pb.playbook_steps), status: :created
     end
 
     # PATCH /api/playbooks/:id
@@ -67,54 +81,49 @@ module Api
     end
 
     # POST /api/playbooks/:id/execute
-    # Manually execute or skip a step (by human).
-    # Optional params: step_index (target specific step), skip (bool), result (string)
+    # ステップを手動実行またはスキップ（人間による操作）
+    # params: step_index (optional), skip (bool), result (string)
     def execute
       pb = Playbook.find(params[:id])
-      is_skip = params[:skip].in?([true, "true", "1"])
+      is_skip = params[:skip].in?([ true, "true", "1" ])
       new_status = is_skip ? "skipped" : "completed"
       default_result = is_skip ? "スキップ" : "手動実行完了"
 
-      if params[:step_index].present?
-        idx = params[:step_index].to_i
-        step = pb.steps[idx]
-        return render json: { error: "Step not found" }, status: :not_found unless step
-        return render json: { error: "Step is not pending" }, status: :unprocessable_entity unless step["status"] == "pending"
+      step = if params[:step_index].present?
+        s = pb.playbook_steps.find_by(step_index: params[:step_index].to_i)
+        return render json: { error: "Step not found" }, status: :not_found unless s
+        return render json: { error: "Step is not pending" }, status: :unprocessable_entity unless s.pending?
+        s
       else
-        step = pb.next_action
-        return render json: { message: "No pending steps" }, status: :unprocessable_entity unless step
-        idx = pb.steps.index(step)
+        s = pb.next_action
+        return render json: { message: "No pending steps" }, status: :unprocessable_entity unless s
+        s
       end
 
-      steps = pb.steps.dup
-      steps[idx] = steps[idx].merge(
-        "status" => new_status,
-        "executed_by" => "human",
-        "completed_at" => Time.current.iso8601,
-        "result" => params[:result] || default_result
-      )
-
-      new_current = steps.index { |s| s["status"] == "pending" } || pb.current_step
-      pb.update!(steps: steps, current_step: new_current)
-      pb.maybe_auto_complete!
+      step.update!(status: new_status, executed_by: "human", completed_at: Time.current)
 
       PlaybookExecution.create!(
-        playbook: pb, step_index: idx,
-        status: new_status, result: params[:result] || default_result,
-        executed_by: "human", executed_at: Time.current
+        playbook: pb,
+        playbook_step: step,
+        status: new_status,
+        action_content: step.template,
+        result: params[:result] || default_result,
+        executed_by: "human",
+        executed_at: Time.current
       )
 
-      render json: pb.as_json.merge(status_summary: pb.status_summary)
+      pb.maybe_auto_complete!
+
+      render json: pb.as_json.merge(
+        status_summary: pb.status_summary,
+        playbook_steps: pb.playbook_steps
+      )
     end
 
     private
 
     def playbook_params
-      params.permit(
-        :title, :status, :objective, :situation_summary, :company_id, :contact_id, :created_by,
-        steps: [:step, :action_type, :executor_type, :channel, :target, :template,
-                :due_in_hours, :status, :result, :completed_at, :executed_by]
-      )
+      params.permit(:title, :status, :objective, :situation_summary, :company_id, :contact_id, :created_by)
     end
   end
 end
