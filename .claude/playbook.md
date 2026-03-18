@@ -16,7 +16,7 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > なぜなら、自分が介入すべきタイミングを見逃したくないから。
 
 - `GET /api/playbooks/:id/status` の `status_summary` を画面に表示
-- 進捗バー・現在ステップ・次アクションが見える
+- 進捗バー・現在ステップ（最初のpendingステップ）・次アクションが見える
 
 ---
 
@@ -25,7 +25,7 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > なぜなら、AIが次のステップに進む前に自分の完了を伝える必要があるから。
 
 - `POST /api/playbooks/:id/execute` で `step_index` と `result` を送信
-- 実行後、次の pending ステップへ自動的に `current_step` が移動
+- `PlaybookStep` の `status` が `completed` に更新され、`PlaybookExecution` に実行内容と結果が記録される
 
 ---
 
@@ -34,7 +34,7 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > なぜなら、硬直したフローより柔軟な対応が受注率を上げるから。
 
 - `POST /api/playbooks/:id/execute` に `skip: true` を送信
-- ステップが `skipped` になり次の pending へ進む
+- ステップが `skipped` になり次の pending ステップが現在のステップになる
 
 ---
 
@@ -53,7 +53,7 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > なぜなら、営業担当者が毎回手動でプランを立てる手間を省きたいから。
 
 - `POST /api/agent/trigger_playbook` に `company_id` を送信
-- `PlaybookGeneratorService` が Claude API で steps を生成してレコード作成
+- `PlaybookGeneratorService` が Claude API でステップを生成し `PlaybookStep` レコードとして保存
 
 ---
 
@@ -61,8 +61,8 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > AIエージェントとして、メール送信・Slack通知・CRM更新などのアクションを実行した後、その結果をプレイブックに記録して次のステップへ進めたい。
 > なぜなら、人間に状況を見えるようにしながら自律的にフローを進めるため。
 
-- `PATCH /api/agent/playbook/:id/step/:step_index` に `status: completed` と `result` を送信
-- `PlaybookExecution` に実行ログが記録され、`maybe_auto_complete!` が走る
+- `PATCH /api/agent/playbook/:id/step/:step_index` に `status`・`action_content`・`result` を送信
+- `PlaybookStep` のステータスが更新され、`PlaybookExecution` に実行内容と結果が記録される
 
 ---
 
@@ -81,7 +81,7 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 > 顧客として、営業からの確認事項にチャットbotで返信するだけで、次のステップへ自動的に進んでほしい。
 > なぜなら、メール返信などの手間を省いてシームレスに商談を進めたいから。
 
-- `executor_type: customer` / `action_type: wait_customer_response` のステップが pending 状態で待機
+- `executor_type: customer` / `action_type: wait_customer_response` の `PlaybookStep` が `pending` で待機
 - 顧客がチャットbotに返信すると該当ステップが自動 `completed` になり次へ進む
 
 ---
@@ -97,46 +97,47 @@ AIがチャットセッションや通信ログから自動生成し、各ステ
 | `contact_id` | uuid | 対象担当者 |
 | `title` | string | プレイブックタイトル |
 | `status` | string | `active` / `paused` / `completed` |
-| `steps` | jsonb | ステップ一覧（後述） |
-| `current_step` | integer | 現在の実行ステップindex |
 | `created_by` | string | 作成者（通常 `ai_agent`） |
 | `objective` | text | このプレイブックの目標 |
 | `situation_summary` | text | 現状サマリー（AIと人間が共有するコンテキスト） |
 
-### PlaybookExecution
+### PlaybookStep
 
-ステップが実行されるたびに記録する実行ログ。
+ステップ定義と現在の実行状態を持つ。`playbooks` と1:Nの関係。
 
 | カラム | 型 | 説明 |
 |---|---|---|
+| `id` | uuid | ステップID |
 | `playbook_id` | uuid | 対象プレイブック |
-| `step_index` | integer | 実行したステップのindex |
+| `step_index` | integer | ステップ順序（`playbook_id` + `step_index` でユニーク） |
+| `action_type` | string | アクション種別（後述） |
+| `executor_type` | string | 実行者種別（`ai` / `human` / `customer`） |
+| `channel` | string | 使用チャンネル |
+| `target` | string | 対象者・チャンネル名 |
+| `template` | text | 実行すべき内容の詳細（指示文） |
+| `due_in_hours` | integer | プレイブック作成から何時間以内に実行するか |
 | `status` | string | `pending` / `in_progress` / `completed` / `failed` / `skipped` |
-| `result` | text | 実行結果のテキスト |
-| `executed_by` | string | 実行者（`ai_agent` または 人間のユーザー名） |
+| `executed_by` | string | 実行者（`ai_agent` または人間のユーザー名） |
+| `completed_at` | datetime | 完了日時 |
+
+### PlaybookExecution
+
+ステップが実行されるたびに記録する実行ログ。`playbook_steps` と1:Nの関係。
+
+| カラム | 型 | 説明 |
+|---|---|---|
+| `id` | uuid | 実行ログID |
+| `playbook_id` | uuid | 対象プレイブック |
+| `playbook_step_id` | uuid | 対象ステップ |
+| `status` | string | `completed` / `failed` / `skipped` |
+| `action_content` | text | 実際に実行した内容 |
+| `result` | text | 実行結果・アウトカム |
+| `executed_by` | string | 実行者（`ai_agent` または人間のユーザー名） |
 | `executed_at` | datetime | 実行日時 |
 
 ---
 
-## stepsフィールド仕様
-
-`steps` はJSONB配列。各要素の構造：
-
-```json
-{
-  "step": 1,
-  "action_type": "send_email",
-  "executor_type": "ai",
-  "channel": "email",
-  "target": "yamada@example.com",
-  "template": "提案資料送付のメール文面",
-  "due_in_hours": 24,
-  "status": "pending",
-  "result": null,
-  "completed_at": null,
-  "executed_by": null
-}
-```
+## PlaybookStep 仕様
 
 ### action_type 一覧
 
@@ -170,7 +171,7 @@ pending → in_progress → completed
 ```
 
 - `wait_customer_response` ステップは顧客がチャットbotで返信した時点で自動 `completed`
-- 全ステップが `completed` / `skipped` / `failed` になると Playbook の `status` が自動で `completed` に遷移
+- 全ステップが `completed` / `skipped` / `failed` になると Playbook の `status` が自動で `completed` に遷移（`maybe_auto_complete!`）
 
 ---
 
@@ -183,9 +184,11 @@ PlaybookGeneratorService#generate
     ↓
 Claude API (claude-sonnet-4-6) にプロンプト送信
     ↓
-JSON形式でtitle / objective / situation_summary / steps を取得
+JSON形式で title / objective / situation_summary / steps[] を取得
     ↓
 Playbook レコード作成（status: active, created_by: ai_agent）
+    ↓
+各ステップを PlaybookStep レコードとして個別保存
 ```
 
 生成トリガーは2パターン：
@@ -201,10 +204,10 @@ Playbook レコード作成（status: active, created_by: ai_agent）
 | メソッド | パス | 説明 |
 |---|---|---|
 | `GET` | `/api/playbooks` | 一覧取得（`?status=active` でフィルタ可） |
-| `GET` | `/api/playbooks/:id` | 詳細取得（実行ログ含む） |
+| `GET` | `/api/playbooks/:id` | 詳細取得（`playbook_steps` + 実行ログ含む） |
 | `GET` | `/api/playbooks/:id/status` | AIと人間の共有ステータスビュー |
-| `POST` | `/api/playbooks` | 手動作成 |
-| `PATCH` | `/api/playbooks/:id` | 更新 |
+| `POST` | `/api/playbooks` | 手動作成（`steps[]` パラメータで同時にステップ作成可） |
+| `PATCH` | `/api/playbooks/:id` | 更新（status変更など） |
 | `POST` | `/api/playbooks/:id/execute` | ステップを手動実行またはスキップ |
 
 #### POST /api/playbooks/:id/execute パラメータ
@@ -220,7 +223,7 @@ Playbook レコード作成（status: active, created_by: ai_agent）
 | メソッド | パス | 説明 |
 |---|---|---|
 | `POST` | `/api/agent/trigger_playbook` | 通信ログからプレイブック自動生成 |
-| `GET` | `/api/agent/playbook/:id` | プレイブック取得（`status_summary` 含む） |
+| `GET` | `/api/agent/playbook/:id` | プレイブック取得（`playbook_steps` + `status_summary` 含む） |
 | `PATCH` | `/api/agent/playbook/:id/step/:step_index` | ステップ完了報告 |
 
 #### PATCH step パラメータ
@@ -228,6 +231,7 @@ Playbook レコード作成（status: active, created_by: ai_agent）
 | パラメータ | 型 | 説明 |
 |---|---|---|
 | `status` | string | `completed` / `failed` / `skipped` |
+| `action_content` | string | 実際に実行した内容 |
 | `result` | string | 実行結果テキスト |
 
 ---
@@ -240,7 +244,6 @@ Playbook レコード作成（status: active, created_by: ai_agent）
 {
   "situation": "現状サマリーテキスト",
   "progress": "2/5ステップ完了",
-  "current_step": 2,
   "next_action": {
     "step": 3,
     "action_type": "send_email",
@@ -265,4 +268,4 @@ active ──→ paused   （一時停止）
 paused ──→ active   （再開）
 ```
 
-`maybe_auto_complete!` メソッドが全ステップ終了時に自動で `completed` へ遷移させます。
+`maybe_auto_complete!` メソッドが全 `PlaybookStep` の終端状態確認後に自動で `completed` へ遷移させます。
