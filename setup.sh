@@ -14,7 +14,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 BOLD='\033[1m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[OK]${NC} $1"; }
@@ -22,6 +22,7 @@ warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 section() { echo -e "\n${BOLD}${CYAN}=== $1 ===${NC}\n"; }
 prompt()  { echo -e "${YELLOW}$1${NC}"; }
+link()    { echo -e "  ${CYAN}→ $1${NC}"; }
 
 # ---------- ユーティリティ ----------
 command_exists() { command -v "$1" &>/dev/null; }
@@ -36,15 +37,16 @@ generate_secret() {
 
 read_input() {
   local var_name="$1"
-  local description="$2"
+  local label="$2"
   local default_val="${3:-}"
   local is_secret="${4:-false}"
 
   if [ -n "$default_val" ]; then
-    prompt "  ${description}"
-    prompt "  (Enter でスキップ → デフォルト値を使用: ${default_val})"
+    prompt "  ${label}"
+    echo -e "  ${BLUE}(Enter でスキップ → デフォルト値を使用)${NC}"
   else
-    prompt "  ${description}"
+    prompt "  ${label}"
+    echo -e "  ${BLUE}(Enter でスキップ)${NC}"
   fi
 
   if [ "$is_secret" = "true" ]; then
@@ -58,7 +60,7 @@ read_input() {
     input_val="$default_val"
   fi
 
-  eval "$var_name='$input_val'"
+  eval "$var_name='${input_val}'"
 }
 
 # ---------- バナー ----------
@@ -101,7 +103,6 @@ if [ "$USE_DOCKER" = "true" ]; then
   if command_exists docker; then
     DOCKER_VERSION=$(docker --version | awk '{print $3}' | tr -d ',')
     success "Docker: ${DOCKER_VERSION}"
-    # Docker Compose v2 (docker compose) or v1 (docker-compose)
     if docker compose version &>/dev/null 2>&1; then
       COMPOSE_CMD="docker compose"
       success "Docker Compose: $(docker compose version --short)"
@@ -115,7 +116,6 @@ if [ "$USE_DOCKER" = "true" ]; then
     MISSING_TOOLS+=("docker")
   fi
 else
-  # Ruby チェック
   if command_exists ruby; then
     RUBY_VERSION=$(ruby --version | awk '{print $2}')
     success "Ruby: ${RUBY_VERSION}"
@@ -127,14 +127,11 @@ else
   else
     MISSING_TOOLS+=("ruby (rbenv or RVM 推奨)")
   fi
-
-  # Node.js チェック
   if command_exists node; then
     success "Node.js: $(node --version)"
   else
     MISSING_TOOLS+=("node.js")
   fi
-
   if command_exists npm; then
     success "npm: $(npm --version)"
   else
@@ -142,7 +139,6 @@ else
   fi
 fi
 
-# psql (DB確認用、任意)
 if command_exists psql; then
   success "psql: $(psql --version | awk '{print $3}')"
 else
@@ -161,146 +157,243 @@ fi
 success "全ての前提ツールが揃っています"
 
 # =============================================================================
-# 3. .env ファイル作成
+# 3. .env ファイルの既存確認
 # =============================================================================
 section ".env ファイル設定"
 
 ROOT_ENV=".env"
 BACKEND_ENV="backend/.env"
 
-# --- ルート .env (Docker Compose 用) ---
-if [ -f "$ROOT_ENV" ]; then
-  warn "${ROOT_ENV} が既に存在します"
-  read -rp "  上書きしますか? [y/N]: " OVERWRITE_ROOT
-  if [[ ! "$OVERWRITE_ROOT" =~ ^[Yy]$ ]]; then
-    info "既存の ${ROOT_ENV} を維持します"
-    SKIP_ROOT_ENV=true
+check_overwrite() {
+  local filepath="$1"
+  local varname="$2"
+  if [ -f "$filepath" ]; then
+    warn "${filepath} が既に存在します"
+    read -rp "  上書きしますか? [y/N]: " ow
+    if [[ "$ow" =~ ^[Yy]$ ]]; then eval "$varname=false"; else eval "$varname=true"; fi
   else
-    SKIP_ROOT_ENV=false
+    eval "$varname=false"
   fi
-else
-  SKIP_ROOT_ENV=false
-fi
+}
 
-# --- backend/.env (ローカル起動 / Rails 用) ---
-if [ -f "$BACKEND_ENV" ]; then
-  warn "${BACKEND_ENV} が既に存在します"
-  read -rp "  上書きしますか? [y/N]: " OVERWRITE_BACKEND
-  if [[ ! "$OVERWRITE_BACKEND" =~ ^[Yy]$ ]]; then
-    info "既存の ${BACKEND_ENV} を維持します"
-    SKIP_BACKEND_ENV=true
-  else
-    SKIP_BACKEND_ENV=false
-  fi
-else
-  SKIP_BACKEND_ENV=false
-fi
+check_overwrite "$ROOT_ENV" SKIP_ROOT_ENV
+check_overwrite "$BACKEND_ENV" SKIP_BACKEND_ENV
 
 # =============================================================================
-# 4. API キー入力
+# 4. コア設定 (DB / AI / エージェント)
 # =============================================================================
-section "API キー / 環境変数の設定"
+section "コア設定 (DB / AI / エージェント)"
 
-echo -e "  以下のサービスのAPIキーを入力してください。"
-echo -e "  スキップしたい項目は Enter を押してください (後で .env を直接編集できます)。\n"
-
-# --- DATABASE_URL ---
 echo -e "${BOLD}[1/5] Supabase DATABASE_URL${NC}"
-echo "  Supabase プロジェクト → Settings → Database → Connection string (URI)"
+link "Supabase プロジェクト → Settings → Database → Connection string (URI)"
 echo "  形式: postgresql://postgres:[PASSWORD]@db.[PROJECT_ID].supabase.co:5432/postgres"
-read_input DB_URL "DATABASE_URL を入力:" ""
+read_input DB_URL "DATABASE_URL:" ""
 echo
 
-# --- ANTHROPIC_API_KEY ---
 echo -e "${BOLD}[2/5] Anthropic API Key (Claude)${NC}"
-echo "  取得先: https://console.anthropic.com/settings/keys"
-read_input ANTHROPIC_KEY "ANTHROPIC_API_KEY を入力 (sk-ant-...):" "" "true"
+link "https://console.anthropic.com/settings/keys"
+read_input ANTHROPIC_KEY "ANTHROPIC_API_KEY (sk-ant-...):" "" "true"
 echo
 
-# --- OPENAI_API_KEY ---
-echo -e "${BOLD}[3/5] OpenAI API Key (Whisper 文字起こし用)${NC}"
-echo "  取得先: https://platform.openai.com/api-keys"
+echo -e "${BOLD}[3/5] OpenAI API Key (Whisper 文字起こし)${NC}"
+link "https://platform.openai.com/api-keys"
 echo "  ※ 文字起こし機能を使わない場合はスキップ可"
-read_input OPENAI_KEY "OPENAI_API_KEY を入力 (sk-...):" "" "true"
+read_input OPENAI_KEY "OPENAI_API_KEY (sk-...):" "" "true"
 echo
 
-# --- AGENT_API_KEY ---
-echo -e "${BOLD}[4/5] Agent API Key (AIエージェント認証用)${NC}"
+echo -e "${BOLD}[4/5] Agent API Key${NC}"
 AUTO_AGENT_KEY=$(generate_secret)
-echo "  AIエージェントが /api/agent/* を叩く際に使う秘密鍵です。"
+echo "  AIエージェントが /api/agent/* を叩く際に使う秘密鍵 (X-Agent-Api-Key ヘッダー)"
 echo "  自動生成値: ${AUTO_AGENT_KEY}"
-read_input AGENT_KEY "AGENT_API_KEY を入力 (Enter で自動生成値を使用):" "$AUTO_AGENT_KEY"
+read_input AGENT_KEY "AGENT_API_KEY (Enter で自動生成値):" "$AUTO_AGENT_KEY"
 echo
 
-# --- AGENT_WEBHOOK_URL ---
-echo -e "${BOLD}[5/5] Agent Webhook URL (任意)${NC}"
+echo -e "${BOLD}[5/5] Agent Webhook URL${NC}"
 echo "  AIエージェントへの通知先URL (Make, n8n 等)。不要な場合はスキップ可。"
-read_input WEBHOOK_URL "AGENT_WEBHOOK_URL を入力:" ""
+read_input WEBHOOK_URL "AGENT_WEBHOOK_URL:" ""
 echo
 
 # =============================================================================
-# 5. .env ファイルへの書き込み
+# 5. 外部API連携 (OAuth 2.0)
+# =============================================================================
+section "外部API連携 (OAuth 2.0) — 使う連携だけ設定してください"
+
+echo -e "  各サービスのOAuthアプリを作成し、${BOLD}Client ID${NC} と ${BOLD}Client Secret${NC} を取得してください。"
+echo -e "  コールバックURL: ${CYAN}http://localhost:8000/api/oauth/callback${NC}"
+echo -e "  スキップしたい場合は Enter をそのまま押してください。\n"
+
+# ---------- Slack ----------
+echo -e "${BOLD}─── Slack ─────────────────────────────────────────────────${NC}"
+link "https://api.slack.com/apps → Create New App → OAuth & Permissions"
+echo "  Redirect URL: http://localhost:8000/api/oauth/callback"
+echo "  必要スコープ: chat:write, channels:read"
+read_input SLACK_CLIENT_ID "SLACK_CLIENT_ID:" ""
+read_input SLACK_CLIENT_SECRET "SLACK_CLIENT_SECRET:" "" "true"
+echo
+
+# ---------- Microsoft Teams ----------
+echo -e "${BOLD}─── Microsoft Teams ────────────────────────────────────────${NC}"
+link "https://portal.azure.com → Azure Active Directory → App registrations → New registration"
+echo "  Redirect URI: http://localhost:8000/api/oauth/callback"
+echo "  必要権限: Chat.ReadWrite (Microsoft Graph)"
+read_input TEAMS_CLIENT_ID "TEAMS_CLIENT_ID (Azure アプリケーション ID):" ""
+read_input TEAMS_CLIENT_SECRET "TEAMS_CLIENT_SECRET (クライアントシークレット):" "" "true"
+echo
+
+# ---------- Zoom ----------
+echo -e "${BOLD}─── Zoom ───────────────────────────────────────────────────${NC}"
+link "https://marketplace.zoom.us/develop/create → OAuth App"
+echo "  Redirect URL: http://localhost:8000/api/oauth/callback"
+echo "  必要スコープ: meeting:read, meeting:write"
+read_input ZOOM_CLIENT_ID "ZOOM_CLIENT_ID:" ""
+read_input ZOOM_CLIENT_SECRET "ZOOM_CLIENT_SECRET:" "" "true"
+echo
+
+# ---------- Google (Meet + Gmail 共通) ----------
+echo -e "${BOLD}─── Google (Meet / Gmail 共通) ─────────────────────────────${NC}"
+link "https://console.cloud.google.com → APIs & Services → Credentials → Create OAuth 2.0 Client ID"
+echo "  Authorized redirect URI: http://localhost:8000/api/oauth/callback"
+echo "  有効にするAPI: Google Calendar API, Gmail API"
+echo "  ※ Google Meet と Gmail で同じ Client ID / Secret を共有します"
+read_input GOOGLE_CLIENT_ID "GOOGLE_CLIENT_ID:" ""
+read_input GOOGLE_CLIENT_SECRET "GOOGLE_CLIENT_SECRET:" "" "true"
+echo
+
+# ---------- Salesforce ----------
+echo -e "${BOLD}─── Salesforce ─────────────────────────────────────────────${NC}"
+link "Salesforce Setup → Apps → App Manager → New Connected App"
+echo "  Callback URL: http://localhost:8000/api/oauth/callback"
+echo "  必要スコープ: api, refresh_token"
+read_input SALESFORCE_CLIENT_ID "SALESFORCE_CLIENT_ID (Consumer Key):" ""
+read_input SALESFORCE_CLIENT_SECRET "SALESFORCE_CLIENT_SECRET (Consumer Secret):" "" "true"
+echo
+
+# ---------- HubSpot ----------
+echo -e "${BOLD}─── HubSpot ────────────────────────────────────────────────${NC}"
+link "https://developers.hubspot.com → Apps → Create app → Auth"
+echo "  Redirect URL: http://localhost:8000/api/oauth/callback"
+echo "  必要スコープ: contacts, crm.objects.deals.read"
+read_input HUBSPOT_CLIENT_ID "HUBSPOT_CLIENT_ID:" ""
+read_input HUBSPOT_CLIENT_SECRET "HUBSPOT_CLIENT_SECRET:" "" "true"
+echo
+
+# =============================================================================
+# 6. .env ファイルへの書き込み
 # =============================================================================
 section ".env ファイルへの書き込み"
 
 write_env() {
   local filepath="$1"
-  local db_url="$2"
-  local anthropic_key="$3"
-  local openai_key="$4"
-  local agent_key="$5"
-  local webhook_url="$6"
-
   cat > "$filepath" <<EOF
 # deal_foward 環境変数
 # 生成日時: $(date '+%Y-%m-%d %H:%M:%S')
 # このファイルをGitにコミットしないでください
 
-DATABASE_URL=${db_url}
-ANTHROPIC_API_KEY=${anthropic_key}
-OPENAI_API_KEY=${openai_key}
-AGENT_API_KEY=${agent_key}
-AGENT_WEBHOOK_URL=${webhook_url}
+# =============================================================================
+# コア設定
+# =============================================================================
+DATABASE_URL=${DB_URL}
+ANTHROPIC_API_KEY=${ANTHROPIC_KEY}
+OPENAI_API_KEY=${OPENAI_KEY}
+AGENT_API_KEY=${AGENT_KEY}
+AGENT_WEBHOOK_URL=${WEBHOOK_URL}
+
+# =============================================================================
+# 外部API連携 (OAuth 2.0)
+# =============================================================================
+
+# Slack
+# https://api.slack.com/apps
+SLACK_CLIENT_ID=${SLACK_CLIENT_ID}
+SLACK_CLIENT_SECRET=${SLACK_CLIENT_SECRET}
+
+# Microsoft Teams (Azure AD)
+# https://portal.azure.com
+TEAMS_CLIENT_ID=${TEAMS_CLIENT_ID}
+TEAMS_CLIENT_SECRET=${TEAMS_CLIENT_SECRET}
+
+# Zoom
+# https://marketplace.zoom.us/develop/create
+ZOOM_CLIENT_ID=${ZOOM_CLIENT_ID}
+ZOOM_CLIENT_SECRET=${ZOOM_CLIENT_SECRET}
+
+# Google (Meet + Gmail 共通)
+# https://console.cloud.google.com
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+
+# Salesforce
+# Salesforce Setup → Connected Apps
+SALESFORCE_CLIENT_ID=${SALESFORCE_CLIENT_ID}
+SALESFORCE_CLIENT_SECRET=${SALESFORCE_CLIENT_SECRET}
+
+# HubSpot
+# https://developers.hubspot.com
+HUBSPOT_CLIENT_ID=${HUBSPOT_CLIENT_ID}
+HUBSPOT_CLIENT_SECRET=${HUBSPOT_CLIENT_SECRET}
 EOF
 }
 
 if [ "$SKIP_ROOT_ENV" = "false" ]; then
-  write_env "$ROOT_ENV" "$DB_URL" "$ANTHROPIC_KEY" "$OPENAI_KEY" "$AGENT_KEY" "$WEBHOOK_URL"
+  write_env "$ROOT_ENV"
   success "${ROOT_ENV} を作成しました"
 fi
 
 if [ "$SKIP_BACKEND_ENV" = "false" ]; then
-  write_env "$BACKEND_ENV" "$DB_URL" "$ANTHROPIC_KEY" "$OPENAI_KEY" "$AGENT_KEY" "$WEBHOOK_URL"
+  write_env "$BACKEND_ENV"
   success "${BACKEND_ENV} を作成しました"
 fi
 
 # =============================================================================
-# 6. .gitignore 確認
+# 7. .gitignore 確認
 # =============================================================================
 section ".gitignore 確認"
 
 check_gitignore() {
   local gitignore="$1"
-  local pattern="$2"
-  if [ -f "$gitignore" ] && grep -q "$pattern" "$gitignore"; then
+  if [ -f "$gitignore" ] && grep -q "\.env" "$gitignore" 2>/dev/null; then
     success "${gitignore}: .env は除外設定済み"
   elif [ -f "$gitignore" ]; then
-    echo ".env" >> "$gitignore"
-    echo ".env.*" >> "$gitignore"
+    printf '\n.env\n.env.*\n' >> "$gitignore"
     warn "${gitignore} に .env を追加しました (シークレット漏洩防止)"
   fi
 }
 
-check_gitignore ".gitignore" "\.env"
-check_gitignore "backend/.gitignore" "\.env" 2>/dev/null || true
+check_gitignore ".gitignore"
+check_gitignore "backend/.gitignore" 2>/dev/null || true
 
 # =============================================================================
-# 7. 依存パッケージのインストール
+# 8. 連携設定サマリー
+# =============================================================================
+section "連携設定サマリー"
+
+show_status() {
+  local name="$1"; local val="$2"
+  if [ -n "$val" ]; then
+    echo -e "  ${GREEN}✓${NC} ${name}"
+  else
+    echo -e "  ${YELLOW}–${NC} ${name} (未設定 — 後で .env を編集して追加可能)"
+  fi
+}
+
+show_status "Slack"            "$SLACK_CLIENT_ID"
+show_status "Microsoft Teams"  "$TEAMS_CLIENT_ID"
+show_status "Zoom"             "$ZOOM_CLIENT_ID"
+show_status "Google Meet/Gmail" "$GOOGLE_CLIENT_ID"
+show_status "Salesforce"       "$SALESFORCE_CLIENT_ID"
+show_status "HubSpot"          "$HUBSPOT_CLIENT_ID"
+
+echo
+echo -e "  OAuthフローの開始: ${CYAN}http://localhost:8000/api/oauth/:service/authorize${NC}"
+echo -e "  例 (Slack):        ${CYAN}http://localhost:8000/api/oauth/slack/authorize${NC}"
+echo -e "  コールバックURL:   ${CYAN}http://localhost:8000/api/oauth/callback${NC}"
+
+# =============================================================================
+# 9. 依存パッケージのインストール
 # =============================================================================
 section "依存パッケージのインストール"
 
 if [ "$USE_DOCKER" = "false" ]; then
-  # --- Ruby gems ---
   info "Bundler で gem をインストール中..."
   cd backend
   if command_exists rbenv; then
@@ -310,7 +403,6 @@ if [ "$USE_DOCKER" = "false" ]; then
   success "gem のインストール完了"
   cd ..
 
-  # --- Node modules ---
   info "npm でパッケージをインストール中..."
   cd frontend
   npm install
@@ -321,7 +413,7 @@ else
 fi
 
 # =============================================================================
-# 8. データベースマイグレーション
+# 10. データベースマイグレーション
 # =============================================================================
 section "データベース設定"
 
@@ -343,35 +435,25 @@ if [ -n "$DB_URL" ]; then
   fi
 else
   warn "DATABASE_URL が未設定のためマイグレーションをスキップします"
-  warn "後で .env に DATABASE_URL を設定し、手動で実行してください:"
+  warn "後で .env を設定してから手動実行してください:"
   echo "    cd backend && bundle exec rails db:migrate"
 fi
 
 # =============================================================================
-# 9. 起動
+# 11. 起動
 # =============================================================================
-section "起動"
+section "セットアップ完了"
 
-echo "  セットアップが完了しました!"
-echo
 echo "  以下のコマンドで起動できます:"
 echo
 
 if [ "$USE_DOCKER" = "true" ]; then
-  echo -e "  ${BOLD}Docker Compose:${NC}"
-  echo "    ${COMPOSE_CMD} up --build"
-  echo
-  echo -e "  ${BOLD}バックグラウンドで起動:${NC}"
-  echo "    ${COMPOSE_CMD} up -d --build"
-  echo
-  echo -e "  ${BOLD}停止:${NC}"
-  echo "    ${COMPOSE_CMD} down"
+  echo -e "  ${BOLD}起動:${NC}      ${COMPOSE_CMD} up --build"
+  echo -e "  ${BOLD}BG起動:${NC}    ${COMPOSE_CMD} up -d --build"
+  echo -e "  ${BOLD}停止:${NC}      ${COMPOSE_CMD} down"
 else
-  echo -e "  ${BOLD}バックエンド (Rails):${NC}"
-  echo "    cd backend && bundle exec rails server -p 8000"
-  echo
-  echo -e "  ${BOLD}フロントエンド (Vite):${NC}"
-  echo "    cd frontend && npm run dev"
+  echo -e "  ${BOLD}バックエンド:${NC} cd backend && bundle exec rails server -p 8000"
+  echo -e "  ${BOLD}フロントエンド:${NC} cd frontend && npm run dev"
 fi
 
 echo
@@ -379,6 +461,11 @@ echo -e "  ${BOLD}アクセス先:${NC}"
 echo "    フロントエンド : http://localhost:5173"
 echo "    バックエンドAPI: http://localhost:8000/api"
 echo "    ヘルスチェック : http://localhost:8000/api/health"
+echo
+echo -e "  ${BOLD}OAuth 連携開始例:${NC}"
+echo "    http://localhost:8000/api/oauth/slack/authorize"
+echo "    http://localhost:8000/api/oauth/google_meet/authorize"
+echo "    http://localhost:8000/api/oauth/gmail/authorize"
 echo
 
 read -rp "  今すぐ起動しますか? [y/N]: " START_NOW
@@ -396,12 +483,10 @@ if [[ "$START_NOW" =~ ^[Yy]$ ]]; then
     bundle exec rails server -p 8000 &
     RAILS_PID=$!
     cd ..
-
     cd frontend
     npm run dev &
     VITE_PID=$!
     cd ..
-
     success "起動しました (Rails PID: ${RAILS_PID}, Vite PID: ${VITE_PID})"
     info "停止するには Ctrl+C を押してください"
     wait $RAILS_PID $VITE_PID
@@ -409,4 +494,4 @@ if [[ "$START_NOW" =~ ^[Yy]$ ]]; then
 fi
 
 echo
-success "セットアップ完了! deal_foward へようこそ 🚀"
+success "セットアップ完了! deal_foward へようこそ"
