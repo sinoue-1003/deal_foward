@@ -54,7 +54,7 @@ class OauthService
       token_url:              "https://oauth2.googleapis.com/token",
       client_id_env:          "GOOGLE_CLIENT_ID",
       client_secret_env:      "GOOGLE_CLIENT_SECRET",
-      scopes:                 "https://www.googleapis.com/auth/gmail.readonly",
+      scopes:                 "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.send",
       token_method:           :post_form,
       extra_authorize_params: { access_type: "offline", prompt: "consent" }
     }
