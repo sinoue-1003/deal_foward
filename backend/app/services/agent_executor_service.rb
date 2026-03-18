@@ -93,6 +93,20 @@ class AgentExecutorService
       }
     },
     {
+      name: "create_gmail_draft",
+      description: "Gmailの下書きを作成する。人間がGmailで内容を確認・編集してから送信できる。送信前に人間にレビューさせたいメールに使用する。",
+      input_schema: {
+        type: "object",
+        properties: {
+          to:      { type: "string", description: "宛先メールアドレス" },
+          subject: { type: "string", description: "メールの件名" },
+          body:    { type: "string", description: "メール本文" },
+          cc:      { type: "string", description: "CCのメールアドレス（任意）" }
+        },
+        required: %w[to subject body]
+      }
+    },
+    {
       name: "schedule_meeting",
       description: "Google MeetまたはZoomのMTGをカレンダーに作成する",
       input_schema: {
@@ -246,9 +260,10 @@ class AgentExecutorService
 
       ## ルール
       1. send_message または schedule_meeting を呼ぶ前に、必ず request_human_approval を呼ぶこと
-      2. すべてのアクション実行後に report_action で記録すること
-      3. 分析・実行が完了したら end_turn で停止すること
-      4. 一度に実行しすぎず、段階的に確認しながら進めること
+      2. メール送信の場合、直接送信より create_gmail_draft で下書き作成を優先すること（人間がレビューできる）
+      3. すべてのアクション実行後に report_action で記録すること
+      4. 分析・実行が完了したら end_turn で停止すること
+      5. 一度に実行しすぎず、段階的に確認しながら進めること
 
       現在時刻: #{Time.current.iso8601}
     PROMPT

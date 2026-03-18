@@ -34,6 +34,7 @@ class AgentToolHandler
     when "report_action"          then tool_report_action(input)
     when "request_human_approval" then tool_request_human_approval(input)
     when "send_message"           then tool_send_message(input)
+    when "create_gmail_draft"     then tool_create_gmail_draft(input)
     when "schedule_meeting"       then tool_schedule_meeting(input)
     else
       { error: "Unknown tool: #{tool_name}" }
@@ -199,11 +200,13 @@ class AgentToolHandler
   end
 
   def send_email_message(recipient, subject, message)
-    {
-      success: true,
-      status:  "queued",
-      message: "Email to #{recipient} with subject '#{subject}' queued. SMTP integration pending full configuration."
-    }
+    integration = Integration.find_by(integration_type: "gmail")
+    unless integration&.status == "connected"
+      return { error: "Gmail integration is not connected. Please connect Gmail in the integrations settings." }
+    end
+
+    gmail = GmailService.new(integration)
+    gmail.send_email(to: recipient, subject: subject || "(件名なし)", body: message)
   end
 
   def send_teams_message(integration, recipient, message)
@@ -212,6 +215,22 @@ class AgentToolHandler
       status:  "queued",
       message: "Teams message to #{recipient} queued. Teams Graph API integration pending full configuration."
     }
+  end
+
+  def tool_create_gmail_draft(input)
+    to      = input["to"]
+    subject = input["subject"]
+    body    = input["body"]
+
+    return { error: "to, subject, body are required" } if [to, subject, body].any?(&:blank?)
+
+    integration = Integration.find_by(integration_type: "gmail")
+    unless integration&.status == "connected"
+      return { error: "Gmail integration is not connected. Please connect Gmail in the integrations settings." }
+    end
+
+    gmail = GmailService.new(integration)
+    gmail.create_draft(to: to, subject: subject, body: body, cc: input["cc"])
   end
 
   # ── Logging ──────────────────────────────────────────────────────────────────
