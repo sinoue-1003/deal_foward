@@ -18,12 +18,12 @@ module TenantScoping
     Current.tenant = tenant
   end
 
-  # リクエストのライフサイクル全体で Postgres の app.current_tenant_id を設定する
+  # リクエストのライフサイクル全体で Postgres のセッション変数を設定する
   # SET LOCAL はトランザクション終了時に自動リセットされる
   def scope_to_tenant
-    ActiveRecord::Base.connection.execute(
-      "SET LOCAL app.current_tenant_id = '#{ActiveRecord::Base.connection.quote_string(Current.tenant.id)}'"
-    )
+    conn = ActiveRecord::Base.connection
+    conn.execute("SET LOCAL app.current_tenant_id = '#{conn.quote_string(Current.tenant.id)}'")
+    conn.execute("SET LOCAL app.is_admin = 'false'")  # 通常テナントリクエストでは admin バイパスを明示的に無効化
     yield
   ensure
     Current.tenant = nil
