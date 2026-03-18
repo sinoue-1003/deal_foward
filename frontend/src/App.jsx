@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, MessageSquare, BookOpen,
-  Radio, BarChart3, Briefcase, Bot
+  Radio, BarChart3, Briefcase, Bot, Mail
 } from 'lucide-react'
 
 import Dashboard from './pages/Dashboard'
@@ -14,6 +14,7 @@ import Deals from './pages/Deals'
 import DealDetail from './pages/DealDetail'
 import Analytics from './pages/Analytics'
 import AgentControl from './pages/AgentControl'
+import GmailImport from './pages/GmailImport'
 
 const navItems = [
   { to: '/',               icon: LayoutDashboard, label: 'ダッシュボード' },
@@ -21,6 +22,7 @@ const navItems = [
   { to: '/chatbot',        icon: MessageSquare,   label: 'チャットbot' },
   { to: '/playbooks',      icon: BookOpen,        label: 'プレイブック' },
   { to: '/communications', icon: Radio,           label: '通信・連携' },
+  { to: '/gmail-import',   icon: Mail,            label: 'Gmailインポート' },
   { to: '/deals',          icon: Briefcase,       label: '商談' },
   { to: '/analytics',      icon: BarChart3,       label: 'アナリティクス' },
 ]
@@ -77,6 +79,7 @@ export default function App() {
             <Route path="/deals/:id"          element={<DealDetail />} />
             <Route path="/analytics"          element={<Analytics />} />
             <Route path="/agent"              element={<AgentControl />} />
+            <Route path="/gmail-import"       element={<GmailImport />} />
           </Routes>
         </main>
       </div>

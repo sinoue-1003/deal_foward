@@ -25,8 +25,10 @@ module Api
         state: params[:state],
         error: params[:error]
       )
-      redirect_to "#{FRONTEND_BASE.call}/communications?connected=#{integration.integration_type}",
-                  allow_other_host: true
+      redirect_path = integration.integration_type == "gmail" \
+        ? "#{FRONTEND_BASE.call}/gmail-import?connected=true" \
+        : "#{FRONTEND_BASE.call}/communications?connected=#{integration.integration_type}"
+      redirect_to redirect_path, allow_other_host: true
     rescue OauthService::OauthError => e
       redirect_to "#{FRONTEND_BASE.call}/communications?oauth_error=#{CGI.escape(e.message)}",
                   allow_other_host: true

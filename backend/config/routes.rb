@@ -49,6 +49,10 @@ Rails.application.routes.draw do
       end
     end
 
+    # Gmail import
+    get  "gmail/preview", to: "gmail_import#preview"
+    post "gmail/import",  to: "gmail_import#import"
+
     # Integrations management
     resources :integrations, only: [:index] do
       member do
