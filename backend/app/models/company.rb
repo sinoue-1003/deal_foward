@@ -1,4 +1,6 @@
 class Company < ApplicationRecord
+  belongs_to :tenant
+
   has_many :contacts
   has_many :chat_sessions
   has_many :communications

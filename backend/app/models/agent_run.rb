@@ -1,4 +1,5 @@
 class AgentRun < ApplicationRecord
+  belongs_to :tenant
   belongs_to :company,  optional: true
   belongs_to :playbook, optional: true
 
