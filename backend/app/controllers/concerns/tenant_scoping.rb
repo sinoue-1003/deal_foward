@@ -8,9 +8,9 @@ module TenantScoping
 
   private
 
-  # X-Tenant-Slug ヘッダーまたは subdomain からテナントを解決する
-  # 実際の認証 (JWT/セッション) と組み合わせて使う
   def set_tenant_context
+    return if admin_request? # admin はテナント不要
+
     tenant = resolve_tenant
     unless tenant&.active?
       render json: { error: "Tenant not found or inactive" }, status: :unauthorized and return
@@ -18,12 +18,17 @@ module TenantScoping
     Current.tenant = tenant
   end
 
-  # リクエストのライフサイクル全体で Postgres のセッション変数を設定する
-  # SET LOCAL はトランザクション終了時に自動リセットされる
+  # admin: app.is_admin = 'true' で RLS をバイパス
+  # 通常: app.current_tenant_id をセットしてテナント分離
   def scope_to_tenant
     conn = ActiveRecord::Base.connection
-    conn.execute("SET LOCAL app.current_tenant_id = '#{conn.quote_string(Current.tenant.id)}'")
-    conn.execute("SET LOCAL app.is_admin = 'false'")  # 通常テナントリクエストでは admin バイパスを明示的に無効化
+    if admin_request?
+      conn.execute("SET LOCAL app.is_admin = 'true'")
+      conn.execute("SET LOCAL app.current_tenant_id = ''")
+    else
+      conn.execute("SET LOCAL app.current_tenant_id = '#{conn.quote_string(Current.tenant.id)}'")
+      conn.execute("SET LOCAL app.is_admin = 'false'")
+    end
     yield
   ensure
     Current.tenant = nil
@@ -38,5 +43,15 @@ module TenantScoping
     elsif (subdomain = request.subdomain.presence) && subdomain != "www"
       Tenant.find_by(slug: subdomain)
     end
+  end
+
+  def admin_request?
+    return @admin_request if defined?(@admin_request)
+    admin_key = ENV["ADMIN_API_KEY"].to_s
+    @admin_request = admin_key.present? &&
+      ActiveSupport::SecurityUtils.secure_compare(
+        request.headers["X-Admin-Api-Key"].to_s,
+        admin_key
+      )
   end
 end
