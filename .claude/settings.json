@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "language": "japanese",
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(bundle:*)",
+      "Bash(bundle exec rails:*)",
+      "Bash(bundle exec rspec:*)",
+      "Bash(bundle exec rubocop:*)",
+      "Bash(npm:*)",
+      "Bash(npm run:*)",
+      "Bash(ruby:*)",
+      "Bash(rails:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(git push --force:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file=$(jq -r '.tool_input.file_path // empty' 2>/dev/null); if echo \"$file\" | grep -qE '\\.rb$' && [ -f \"$file\" ]; then cd /home/user/deal_foward/backend && export PATH=\"/opt/rbenv/versions/3.3.6/bin:$PATH\" && bundle exec rubocop --autocorrect \"$file\" 2>/dev/null || true; fi",
+            "timeout": 30,
+            "statusMessage": "Rubocop 自動修正中..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\": \"作業完了。重要な学びがあれば tasks/lessons.md を更新してください。\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
