@@ -1,29 +1,30 @@
 class Deal < ApplicationRecord
   belongs_to :tenant
   belongs_to :company, optional: true
-  belongs_to :owner, class_name: "User", optional: true
+  belongs_to :owner,   class_name: "User", optional: true
 
-  has_many :deal_contacts,       dependent: :destroy
+  has_many :deal_contacts,        dependent: :destroy
   has_many :contacts, through: :deal_contacts
-  has_many :playbooks,           dependent: :destroy
-  has_many :communications,      dependent: :destroy
-  has_many :agent_reports,       dependent: :destroy
-  has_many :agent_runs,          dependent: :destroy
-  has_many :tasks,               dependent: :destroy
-  has_many :meetings,            dependent: :destroy
-  has_many :quotes,              dependent: :destroy
-  has_many :contracts,           dependent: :nullify
-  has_many :stage_histories,     class_name: "DealStageHistory", dependent: :destroy
+  has_many :deal_products,        dependent: :destroy
+  has_many :products, through: :deal_products
+  has_many :playbooks,            dependent: :destroy
+  has_many :communications,       dependent: :destroy
+  has_many :agent_reports,        dependent: :destroy
+  has_many :agent_runs,           dependent: :destroy
+  has_many :tasks,                dependent: :destroy
+  has_many :meetings,             dependent: :destroy
+  has_many :quotes,               dependent: :destroy
+  has_many :contracts,            dependent: :nullify
+  has_many :stage_histories,      class_name: "DealStageHistory", dependent: :destroy
   has_many :sequence_enrollments, dependent: :destroy
-  has_many :email_messages,      dependent: :destroy
-  has_many :activity_timeline,   dependent: :destroy
-  has_many :notes, as: :notable, dependent: :destroy
+  has_many :email_messages,       dependent: :destroy
+  has_many :activity_timeline,    dependent: :destroy
+  has_many :notes, as: :notable,  dependent: :destroy
 
   STAGES              = %w[prospect qualify demo proposal negotiation closed_won closed_lost].freeze
   SOURCES             = %w[inbound outbound referral partner event web other].freeze
   DEAL_TYPES          = %w[new_business expansion renewal upsell cross_sell].freeze
   FORECAST_CATEGORIES = %w[commit best_case pipeline omitted].freeze
-  LOST_REASONS        = %w[price competitor timing no_budget no_decision other].freeze
 
   enum :lost_reason, {
     price:       "price",
@@ -43,17 +44,32 @@ class Deal < ApplicationRecord
   validates :budget,            numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :amount,            numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
 
-  after_update :record_stage_history, if: :saved_change_to_stage?
+  # 初回作成時と更新時のステージ変遷を記録
+  after_create :record_initial_stage
+  after_update :record_stage_change, if: :saved_change_to_stage?
 
   private
 
-  def record_stage_history
-    from, to = saved_change_to_stage
+  def record_initial_stage
     stage_histories.create!(
       tenant:     tenant,
-      from_stage: from,
-      to_stage:   to,
-      changed_at: Time.current
+      from_stage: nil,
+      to_stage:   stage,
+      changed_at: created_at
+    )
+  end
+
+  def record_stage_change
+    from, to = saved_change_to_stage
+    prev_entry = stage_histories.where(to_stage: from).order(changed_at: :desc).first
+    days = prev_entry ? ((Time.current - prev_entry.changed_at) / 86_400).round : nil
+
+    stage_histories.create!(
+      tenant:              tenant,
+      from_stage:          from,
+      to_stage:            to,
+      days_in_from_stage:  days,
+      changed_at:          Time.current
     )
   end
 end

@@ -4,6 +4,7 @@ class Task < ApplicationRecord
   belongs_to :company,       optional: true
   belongs_to :contact,       optional: true
   belongs_to :playbook_step, optional: true
+  belongs_to :assigned_to,   class_name: "User", optional: true
 
   TASK_TYPES = %w[call email meeting demo proposal follow_up other].freeze
   STATUSES   = %w[pending in_progress completed cancelled].freeze

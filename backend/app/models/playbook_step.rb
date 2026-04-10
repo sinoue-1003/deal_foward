@@ -1,15 +1,17 @@
 class PlaybookStep < ApplicationRecord
   belongs_to :tenant
   belongs_to :playbook
+  belongs_to :executed_by, class_name: "User", optional: true
+
   has_many :playbook_executions, dependent: :destroy
-  has_many :tasks, dependent: :nullify
+  has_many :tasks,               dependent: :nullify
 
   STATUSES       = %w[pending in_progress completed failed skipped].freeze
   EXECUTOR_TYPES = %w[ai human customer].freeze
   ACTION_TYPES   = %w[
-    send_slack_message  schedule_meeting    send_email
-    update_crm          create_followup_task send_proposal
-    request_demo        share_case_study    follow_up_call
+    send_slack_message   schedule_meeting     send_email
+    update_crm           create_followup_task send_proposal
+    request_demo         share_case_study     follow_up_call
     wait_customer_response
   ].freeze
 

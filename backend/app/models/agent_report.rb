@@ -1,9 +1,10 @@
 class AgentReport < ApplicationRecord
   belongs_to :tenant
-  belongs_to :company,  optional: true
-  belongs_to :contact,  optional: true
-  belongs_to :deal,     optional: true
-  belongs_to :playbook, optional: true
+  belongs_to :company,     optional: true
+  belongs_to :contact,     optional: true
+  belongs_to :deal,        optional: true
+  belongs_to :playbook,    optional: true
+  belongs_to :reviewed_by, class_name: "User", optional: true
 
   REPORT_TYPES = %w[activity analysis recommendation alert].freeze
   STATUSES     = %w[pending in_progress completed].freeze

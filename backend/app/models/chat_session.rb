@@ -4,6 +4,9 @@ class ChatSession < ApplicationRecord
   belongs_to :contact,     optional: true
   belongs_to :assigned_to, class_name: "User", optional: true
 
+  # メッセージは chat_messages テーブルで管理（正規化済み）
+  has_many :messages, class_name: "ChatMessage", dependent: :destroy
+
   STATUSES = %w[active ended converted].freeze
   SOURCES  = %w[organic paid social referral direct email other].freeze
 
