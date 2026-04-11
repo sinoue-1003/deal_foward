@@ -37,6 +37,7 @@ class Company < ApplicationRecord
 
   # ── イベント発行 ─────────────────────────────────────────────────
   after_create  :emit_company_created
+  after_update  :emit_field_changes                                        # 全フィールド差分
   after_update  :emit_account_type_changed, if: :saved_change_to_account_type?
   after_update  :emit_owner_changed,        if: :saved_change_to_owner_id?
 

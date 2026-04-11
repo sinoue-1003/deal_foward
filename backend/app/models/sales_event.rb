@@ -15,7 +15,7 @@ class SalesEvent < ApplicationRecord
   ].freeze
 
   ENGAGEMENT_EVENTS = %w[
-    meeting.scheduled  meeting.completed    meeting.no_show
+    meeting.scheduled  meeting.completed    meeting.no_show   meeting.cancelled
     email.sent         email.opened         email.replied     email.bounced
     call.made          call.completed       call.no_answer
     chat.started       chat.converted       chat.ended
@@ -53,10 +53,17 @@ class SalesEvent < ApplicationRecord
     contact.owner_changed  contact.do_not_contact_set
   ].freeze
 
+  # 汎用フィールド差分イベント（何が・どう変わったかを payload.changes に記録）
+  FIELD_CHANGE_EVENTS = %w[
+    company.updated   contact.updated  deal.updated
+    lead.updated      quote.updated    contract.updated  meeting.updated
+  ].freeze
+
   ALL_EVENT_TYPES = (
     LEAD_EVENTS + DEAL_EVENTS + ENGAGEMENT_EVENTS +
     SEQUENCE_EVENTS + CPQ_EVENTS + CONTRACT_EVENTS +
-    CS_EVENTS + PLAYBOOK_EVENTS + COMPANY_EVENTS + CONTACT_EVENTS
+    CS_EVENTS + PLAYBOOK_EVENTS + COMPANY_EVENTS + CONTACT_EVENTS +
+    FIELD_CHANGE_EVENTS
   ).freeze
 
   AGGREGATE_TYPES = %w[

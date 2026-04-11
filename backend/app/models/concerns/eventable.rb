@@ -2,6 +2,13 @@ module Eventable
   extend ActiveSupport::Concern
 
   # ----------------------------------------------------------------
+  # フィールド差分追跡から除外するシステムカラム
+  # ----------------------------------------------------------------
+  DIFF_IGNORED_FIELDS = %w[
+    updated_at created_at tenant_id
+  ].freeze
+
+  # ----------------------------------------------------------------
   # インクルード先のモデルで使えるクラスメソッド
   # ----------------------------------------------------------------
   included do
@@ -25,6 +32,28 @@ module Eventable
       actor_type:  actor_type,
       actor_id:    actor_id
     )
+  end
+
+  # ----------------------------------------------------------------
+  # 汎用フィールド差分イベント発行
+  #   after_update :emit_field_changes を各モデルに書くだけで
+  #   変更されたカラムの前後値が "<aggregate>.updated" に記録される
+  #
+  #   payload 例:
+  #   {
+  #     "changes": {
+  #       "phone":          [nil, "03-1234-5678"],
+  #       "employee_count": [50, 120],
+  #       "account_type":   ["prospect", "customer"]
+  #     }
+  #   }
+  # ----------------------------------------------------------------
+  def emit_field_changes
+    diff = saved_changes.except(*DIFF_IGNORED_FIELDS)
+    return if diff.empty?
+
+    aggregate_name = self.class.name.underscore  # "company" / "deal" など
+    publish_event!("#{aggregate_name}.updated", payload: { changes: diff })
   end
 
   # ----------------------------------------------------------------

@@ -32,6 +32,7 @@ class Contract < ApplicationRecord
 
   # ── イベント発行 ─────────────────────────────────────────────────
   after_create :emit_contract_created
+  after_update :emit_field_changes                                    # 全フィールド差分
   after_update :emit_status_event, if: :saved_change_to_status?
 
   private

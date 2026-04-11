@@ -25,6 +25,7 @@ class Meeting < ApplicationRecord
 
   # ── イベント発行 ─────────────────────────────────────────────────
   after_create :emit_meeting_scheduled
+  after_update :emit_field_changes                                    # 全フィールド差分
   after_update :emit_status_event, if: :saved_change_to_status?
 
   def duration_from_timestamps

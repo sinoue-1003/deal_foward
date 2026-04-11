@@ -25,6 +25,7 @@ class Lead < ApplicationRecord
 
   # ── イベント発行 ─────────────────────────────────────────────────
   after_create :emit_lead_created
+  after_update :emit_field_changes                                    # 全フィールド差分
   after_update :emit_score_updated, if: :saved_change_to_score?
   after_update :emit_assigned,      if: :saved_change_to_assigned_to_id?
 

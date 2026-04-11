@@ -49,6 +49,7 @@ class Deal < ApplicationRecord
 
   # ── イベント発行 ─────────────────────────────────────────────────
   after_create  :emit_deal_created
+  after_update  :emit_field_changes                                        # 全フィールド差分
   after_update  :emit_stage_changed,  if: :saved_change_to_stage?
   after_update  :emit_amount_updated, if: :saved_change_to_expected_revenue?
   after_update  :emit_owner_changed,  if: :saved_change_to_owner_id?
