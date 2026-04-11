@@ -58,10 +58,10 @@ class Deal < ApplicationRecord
 
   def emit_deal_created
     event = publish_event!("deal.created", payload: {
-      title:  title,
-      stage:  stage,
-      amount: expected_revenue,
-      source: source
+      title:            title,
+      stage:            stage,
+      expected_revenue: expected_revenue,
+      source:           source
     })
     # リードモデル（deal_stage_histories）を同期
     stage_histories.create!(

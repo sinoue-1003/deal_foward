@@ -28,7 +28,7 @@ module Api
         contact: pb.contact,
         status_summary: pb.status_summary,
         next_action: pb.next_action,
-        playbook_steps: pb.playbook_steps.as_json(include: { playbook_executions: { only: %i[id status action_content result executed_by executed_at] } }),
+        playbook_steps: pb.playbook_steps.as_json(include: { playbook_executions: { only: %i[id status action_content result executed_by_id executed_at] } }),
         executions: executions,
         total_steps: pb.playbook_steps.size,
         completed_steps: pb.playbook_steps.count { |s| s.status == "completed" }
@@ -49,7 +49,7 @@ module Api
         playbook_steps: pb.playbook_steps,
         next_action: pb.next_action,
         company: pb.company&.as_json(only: %i[id name]),
-        contact: pb.contact&.as_json(only: %i[id name position])
+        contact: pb.contact&.as_json(only: %i[id first_name last_name position])
       }
     end
 
@@ -100,7 +100,7 @@ module Api
         s
       end
 
-      step.update!(status: new_status, executed_by: "human", completed_at: Time.current)
+      step.update!(status: new_status, executed_by_id: Current.user&.id, completed_at: Time.current)
 
       PlaybookExecution.create!(
         playbook: pb,
@@ -108,7 +108,7 @@ module Api
         status: new_status,
         action_content: step.template,
         result: params[:result] || default_result,
-        executed_by: "human",
+        executed_by_id: Current.user&.id,
         executed_at: Time.current
       )
 

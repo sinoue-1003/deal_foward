@@ -51,7 +51,7 @@ module Api
 
     def deal_summary(deal)
       deal.as_json(only: %i[
-        id title stage amount probability currency
+        id title stage expected_revenue probability currency
         close_date forecast_category deal_type source
         created_at updated_at
       ]).merge(
@@ -65,7 +65,7 @@ module Api
 
     def deal_params
       params.permit(
-        :title, :company_id, :owner_id, :stage, :amount, :probability,
+        :title, :company_id, :owner_id, :stage, :expected_revenue, :probability,
         :close_date, :notes, :lost_reason, :won_reason,
         :source, :deal_type, :currency, :budget, :expected_start_date,
         :forecast_category, :pain_points, :decision_criteria,
