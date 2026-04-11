@@ -44,15 +44,24 @@ class SalesEvent < ApplicationRecord
     playbook.created  playbook.step_completed  playbook.completed
   ].freeze
 
+  COMPANY_EVENTS = %w[
+    company.created  company.account_type_changed  company.owner_changed
+  ].freeze
+
+  CONTACT_EVENTS = %w[
+    contact.created  contact.status_changed  contact.score_updated
+    contact.owner_changed  contact.do_not_contact_set
+  ].freeze
+
   ALL_EVENT_TYPES = (
     LEAD_EVENTS + DEAL_EVENTS + ENGAGEMENT_EVENTS +
     SEQUENCE_EVENTS + CPQ_EVENTS + CONTRACT_EVENTS +
-    CS_EVENTS + PLAYBOOK_EVENTS
+    CS_EVENTS + PLAYBOOK_EVENTS + COMPANY_EVENTS + CONTACT_EVENTS
   ).freeze
 
   AGGREGATE_TYPES = %w[
     Lead Deal Contact Company Meeting EmailMessage
-    Quote Contract Sequence ChatSession Playbook
+    Quote Contract Sequence ChatSession SequenceEnrollment Playbook
   ].freeze
 
   ACTOR_TYPES = %w[user ai_agent system].freeze
@@ -72,6 +81,7 @@ class SalesEvent < ApplicationRecord
   scope :for_deal,        ->(id)        { for_aggregate("Deal", id) }
   scope :for_lead,        ->(id)        { for_aggregate("Lead", id) }
   scope :for_contact,     ->(id)        { for_aggregate("Contact", id) }
+  scope :for_company,     ->(id)        { for_aggregate("Company", id) }
   scope :recent,          ->            { order(occurred_at: :desc) }
   scope :of_type,         ->(type)      { where(event_type: type) }
   scope :by_actor,        ->(type, id)  { where("metadata->>'actor_type' = ? AND metadata->>'actor_id' = ?", type, id) }
