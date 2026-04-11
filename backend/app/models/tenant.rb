@@ -35,7 +35,7 @@ class Tenant < ApplicationRecord
   has_many :territory_assignments,  dependent: :destroy
   has_many :quotas,                 dependent: :destroy
   has_many :notes,                  dependent: :destroy
-  has_many :activity_timeline,      dependent: :destroy
+  has_many :sales_events,           dependent: :destroy
   has_many :email_messages,         dependent: :destroy
   has_many :customer_health_scores, dependent: :destroy
   has_many :audit_logs,             dependent: :destroy

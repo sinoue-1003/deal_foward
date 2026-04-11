@@ -1,4 +1,6 @@
 class Deal < ApplicationRecord
+  include Eventable
+
   belongs_to :tenant
   belongs_to :company, optional: true
   belongs_to :owner,   class_name: "User", optional: true
@@ -18,7 +20,8 @@ class Deal < ApplicationRecord
   has_many :stage_histories,      class_name: "DealStageHistory", dependent: :destroy
   has_many :sequence_enrollments, dependent: :destroy
   has_many :email_messages,       dependent: :destroy
-  has_many :activity_timeline,    dependent: :destroy
+  has_many :sales_events, -> { where(aggregate_type: "Deal") },
+           foreign_key: :aggregate_id, primary_key: :id
   has_many :notes, as: :notable,  dependent: :destroy
 
   STAGES              = %w[prospect qualify demo proposal negotiation closed_won closed_lost].freeze
@@ -42,34 +45,71 @@ class Deal < ApplicationRecord
   validates :forecast_category, inclusion: { in: FORECAST_CATEGORIES }, allow_nil: true
   validates :probability,       numericality: { in: 0..100 },           allow_nil: true
   validates :budget,            numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
-  validates :amount,            numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
+  validates :expected_revenue,  numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
 
-  # 初回作成時と更新時のステージ変遷を記録
-  after_create :record_initial_stage
-  after_update :record_stage_change, if: :saved_change_to_stage?
+  # ── イベント発行 ─────────────────────────────────────────────────
+  after_create  :emit_deal_created
+  after_update  :emit_stage_changed,  if: :saved_change_to_stage?
+  after_update  :emit_amount_updated, if: :saved_change_to_expected_revenue?
+  after_update  :emit_owner_changed,  if: :saved_change_to_owner_id?
 
   private
 
-  def record_initial_stage
+  def emit_deal_created
+    event = publish_event!("deal.created", payload: {
+      title:  title,
+      stage:  stage,
+      amount: expected_revenue,
+      source: source
+    })
+    # リードモデル（deal_stage_histories）を同期
     stage_histories.create!(
-      tenant:     tenant,
-      from_stage: nil,
-      to_stage:   stage,
-      changed_at: created_at
+      tenant:          tenant,
+      from_stage:      nil,
+      to_stage:        stage,
+      changed_at:      created_at,
+      sales_event_id:  event.id
     )
   end
 
-  def record_stage_change
+  def emit_stage_changed
     from, to = saved_change_to_stage
-    prev_entry = stage_histories.where(to_stage: from).order(changed_at: :desc).first
-    days = prev_entry ? ((Time.current - prev_entry.changed_at) / 86_400).round : nil
+    prev = stage_histories.where(to_stage: from).order(changed_at: :desc).first
+    days = prev ? ((Time.current - prev.changed_at) / 86_400).round : nil
+
+    event = publish_event!("deal.stage_changed", payload: {
+      from_stage: from,
+      to_stage:   to,
+      days_in_from_stage: days
+    })
 
     stage_histories.create!(
-      tenant:              tenant,
-      from_stage:          from,
-      to_stage:            to,
-      days_in_from_stage:  days,
-      changed_at:          Time.current
+      tenant:             tenant,
+      from_stage:         from,
+      to_stage:           to,
+      days_in_from_stage: days,
+      changed_at:         Time.current,
+      sales_event_id:     event.id
     )
+
+    # 受注・失注の専用イベントも発行
+    publish_event!("deal.won",  payload: { won_reason: won_reason })  if to == "closed_won"
+    publish_event!("deal.lost", payload: { lost_reason: lost_reason }) if to == "closed_lost"
+  end
+
+  def emit_amount_updated
+    prev, curr = saved_change_to_expected_revenue
+    publish_event!("deal.amount_updated", payload: {
+      previous_amount: prev,
+      new_amount:      curr
+    })
+  end
+
+  def emit_owner_changed
+    prev, curr = saved_change_to_owner_id
+    publish_event!("deal.owner_changed", payload: {
+      previous_owner_id: prev,
+      new_owner_id:      curr
+    })
   end
 end
