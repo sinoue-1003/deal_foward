@@ -4,57 +4,80 @@ Rails.application.routes.draw do
   namespace :api do
     get "health", to: "health#show"
 
-    # AI Agent endpoints (for AI agents to consume)
+    # ── AI Agent エンドポイント ──────────────────────────────────────
     namespace :agent do
-      post   "report",          to: "actions#report"
-      post   "request_context", to: "actions#request_context"
-      post   "trigger_playbook",to: "actions#trigger_playbook"
-      get    "communications",  to: "actions#communications"
-      get    "contacts/:company_id", to: "actions#contacts"
-      get    "playbook/:id",    to: "actions#playbook"
-      patch  "playbook/:id/step/:step_index", to: "actions#update_step"
+      post  "report",           to: "actions#report"
+      post  "request_context",  to: "actions#request_context"
+      post  "trigger_playbook", to: "actions#trigger_playbook"
+      get   "communications",   to: "actions#communications"
+      get   "contacts/:company_id", to: "actions#contacts"
+      get   "playbook/:id",         to: "actions#playbook"
+      patch "playbook/:id/step/:step_index", to: "actions#update_step"
 
-      # Agent run management
-      post   "run",               to: "runs#create"
-      get    "runs",              to: "runs#index"
-      get    "runs/:id",          to: "runs#show"
-      post   "runs/:id/approve",  to: "runs#approve"
-      post   "runs/:id/reject",   to: "runs#reject"
+      post  "run",              to: "runs#create"
+      get   "runs",             to: "runs#index"
+      get   "runs/:id",         to: "runs#show"
+      post  "runs/:id/approve", to: "runs#approve"
+      post  "runs/:id/reject",  to: "runs#reject"
     end
 
-    # OAuth 2.0 flows
+    # ── OAuth 2.0 ───────────────────────────────────────────────────
     get "oauth/:integration_type/authorize", to: "oauth#authorize"
     get "oauth/callback",                    to: "oauth#callback"
 
-    # Chatbot endpoints
-    resources :chatbot_sessions, path: "chatbot/sessions", only: [:index, :show, :create] do
+    # ── CRM コア ────────────────────────────────────────────────────
+    resources :leads do
+      member { post :convert }
+    end
+
+    resources :deals do
       member do
-        post :message
+        get  :stage_history  # ステージ変遷履歴
       end
+    end
+
+    resources :contacts, only: [ :index, :show, :create, :update, :destroy ]
+    resources :companies, only: [ :index, :show, :create, :update, :destroy ]
+
+    # ── CPQ（見積・製品・契約）────────────────────────────────────
+    resources :products
+    resources :quotes
+    resources :contracts do
+      member { post :renew }
+    end
+
+    # ── セールスエンゲージメント ────────────────────────────────────
+    resources :sequences do
+      member { post :enroll }
+    end
+    resources :tasks
+
+    # ── コンバセーション インテリジェンス ───────────────────────────
+    resources :meetings do
+      member { get :insight }
+    end
+
+    # ── コミュニケーション ──────────────────────────────────────────
+    resources :communications, only: [ :index, :show, :create ] do
+      collection { post :analyze }
+    end
+
+    # ── チャットbot ─────────────────────────────────────────────────
+    resources :chatbot_sessions, path: "chatbot/sessions", only: [ :index, :show, :create ] do
+      member { post :message }
     end
     post "chatbot/session", to: "chatbot_sessions#create"
 
-    # Playbooks
+    # ── プレイブック ────────────────────────────────────────────────
     resources :playbooks do
       member do
         post :execute
-        get  :status   # AI + human shared status view
+        get  :status
       end
     end
 
-    # Communications (Slack, Teams, Zoom, Meet, CRM data)
-    resources :communications, only: [:index, :show, :create] do
-      collection do
-        post :analyze
-      end
-    end
-
-    # Gmail import
-    get  "gmail/preview", to: "gmail_import#preview"
-    post "gmail/import",  to: "gmail_import#import"
-
-    # Integrations management
-    resources :integrations, only: [:index] do
+    # ── 統合管理 ────────────────────────────────────────────────────
+    resources :integrations, only: [ :index ] do
       member do
         post   :connect
         delete :disconnect
@@ -62,10 +85,11 @@ Rails.application.routes.draw do
       end
     end
 
-    # Deals / pipeline
-    resources :deals
+    # ── Gmail インポート ────────────────────────────────────────────
+    get  "gmail/preview", to: "gmail_import#preview"
+    post "gmail/import",  to: "gmail_import#import"
 
-    # Dashboard
+    # ── ダッシュボード ──────────────────────────────────────────────
     namespace :dashboard do
       get "overview",       to: "overviews#show"
       get "agent_activity", to: "agent_activities#show"

@@ -9,7 +9,7 @@ module Api
       render json: sessions.map { |s|
         s.as_json.merge(
           company_name: s.company&.name,
-          contact_name: s.contact&.name,
+          contact_name: s.contact&.full_name,
           intent_level: s.intent_level,
           message_count: s.messages.size
         )
@@ -29,7 +29,6 @@ module Api
     # POST /api/chatbot/session
     def create
       session = ChatSession.create!(
-        messages: [],
         intent_score: 0,
         status: "active"
       )
